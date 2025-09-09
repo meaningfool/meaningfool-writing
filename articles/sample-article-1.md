@@ -1,6 +1,6 @@
 ---
 title: "Getting Started with Git Submodules"
-date: "2024-01-15"
+date: 2024-01-15
 description: "A comprehensive guide to managing content using Git submodules for static sites"
 tags: ["git", "webdev", "content-management"]
 ---

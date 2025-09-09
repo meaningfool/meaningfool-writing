@@ -1,6 +1,6 @@
 ---
 title: "Building Static Sites with Astro"
-date: "2024-01-20"
+date: 2024-01-20
 description: "Exploring the benefits of Astro for creating fast, content-focused websites"
 tags: ["astro", "static-sites", "performance"]
 ---
