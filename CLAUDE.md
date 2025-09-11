@@ -21,34 +21,75 @@ meaningfool.github.io (Main Site Repository)
 
 ## Content Structure
 
-Articles should be Markdown files with frontmatter:
+**CRITICAL**: Every article MUST have proper frontmatter or the build will fail.
+
+### Required Frontmatter Template
+
+**Always use this exact template for new articles:**
 
 ```markdown
 ---
-title: "Article Title"
-date: 2025-01-15
-description: "Optional description"
-tags: ["optional", "tags"]
+title: "Your Article Title Here"
+date: 2025-09-11
+description: "Brief description of your article (optional but recommended)"
+tags: ["tag1", "tag2"]
 ---
 
-Article content here...
+Your article content goes here...
 ```
+
+### Frontmatter Rules
+
+**Required Fields:**
+- `title`: String - The article title (must be quoted)
+- `date`: Date - Format as YYYY-MM-DD (no quotes)
+
+**Optional Fields:**
+- `description`: String - Brief description (must be quoted if used)
+- `tags`: Array - List of tags in brackets with quotes
+
+### Validation Before Publishing
+
+**ALWAYS run this command before committing to check for errors:**
+
+```bash
+# In the writing repo directory
+find . -name "*.md" ! -name "CLAUDE.md" ! -name "README.md" -exec echo "Checking: {}" \; -exec head -10 "{}" \;
+```
+
+**Manual frontmatter check:**
+```bash
+# Check if all articles have required frontmatter
+grep -L "^title:" *.md | grep -v CLAUDE.md | grep -v README.md
+grep -L "^date:" *.md | grep -v CLAUDE.md | grep -v README.md
+```
+
+If either command returns filenames, those files are missing required frontmatter.
 
 ## Publishing Workflow
 
 ### Prerequisites Before Publishing
 
-1. **Commit all changes** in this repository:
+1. **Validate frontmatter** (run this first!):
+   ```bash
+   # Quick check for missing frontmatter
+   grep -L "^title:" *.md | grep -v CLAUDE.md | grep -v README.md
+   grep -L "^date:" *.md | grep -v CLAUDE.md | grep -v README.md
+   ```
+   
+   If any filenames appear, fix them before proceeding.
+
+2. **Commit all changes** in this repository:
    ```bash
    git add .
    git commit -m "Add/update article: [title]"
    git push origin main
    ```
 
-2. **Verify content** is ready for publication:
+3. **Final verification**:
    - Check article formatting
-   - Verify frontmatter is correct
    - Ensure no draft content is being published
+   - All frontmatter fields are properly formatted
 
 ### Publishing Command
 
@@ -75,6 +116,21 @@ gh workflow run update-content.yml --repo meaningfool/meaningfool.github.io
 
 ## Troubleshooting
 
+### Build Failing with "data does not match collection schema"
+
+**Most common issue**: Missing or incorrect frontmatter
+
+1. **Run validation commands**:
+   ```bash
+   # Check which files are missing frontmatter
+   grep -L "^title:" *.md | grep -v CLAUDE.md | grep -v README.md
+   grep -L "^date:" *.md | grep -v CLAUDE.md | grep -v README.md
+   ```
+
+2. **Fix any files that appear** by adding proper frontmatter template
+
+3. **Verify date format**: Must be `YYYY-MM-DD` (no quotes, no time)
+
 ### Article Not Appearing After Publishing
 
 1. Check workflow status:
@@ -82,7 +138,7 @@ gh workflow run update-content.yml --repo meaningfool/meaningfool.github.io
    gh run list --repo meaningfool/meaningfool.github.io --limit 5
    ```
 
-2. Verify article has valid frontmatter (especially `title` and `date`)
+2. Look for deployment workflow failure (build errors)
 
 3. Check article filename (should be lowercase with hyphens: `my-article.md`)
 
