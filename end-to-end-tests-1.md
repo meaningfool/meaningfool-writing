@@ -6,7 +6,7 @@ author: "Test Author"
 tags: ["testing", "e2e", "automation", "quality"]
 ---
 
-# End-to-End Testing: A Comprehensive Guide
+# End-to-End Cooking: A Comprehensive Guide
 
 End-to-end (E2E) testing is a methodology used to test whether the flow of an application is performing as designed from start to finish. The purpose of E2E testing is to simulate real user scenarios and validate the system for data integrity and integration.
 
