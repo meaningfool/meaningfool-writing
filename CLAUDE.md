@@ -72,31 +72,6 @@ gh workflow run update-content.yml --repo meaningfool/meaningfool.github.io
 - **Selective publishing**: Future enhancement will support draft vs published states
 - **One command**: The `gh workflow run` command handles everything
 
-## Common Tasks
-
-### Adding a New Article
-
-1. Create new `.md` file in this repository
-2. Add frontmatter and content
-3. Commit and push:
-   ```bash
-   git add your-article.md
-   git commit -m "Add article: Your Title"
-   git push origin main
-   ```
-4. When ready to publish, run the publishing command above
-
-### Updating an Existing Article
-
-1. Edit the `.md` file
-2. Commit and push changes
-3. Run publishing command when ready
-
-### Removing an Article
-
-1. Delete the `.md` file
-2. Commit and push the deletion
-3. Run publishing command to remove from live site
 
 ## Troubleshooting
 
