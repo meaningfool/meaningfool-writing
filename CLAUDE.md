@@ -148,6 +148,53 @@ gh workflow run update-content.yml --repo meaningfool/meaningfool.github.io
 2. Verify authentication: `gh auth status`
 3. Check you have access to the main repository
 
+## AI Orchestration & Tooling Development
+
+The `.ai-orchestration/` directory contains files for tracking tooling development and automation work.
+
+### Development Log (devlog.md)
+
+**Purpose**: Captures the evolution of tooling and automation infrastructure.
+
+**When to update**:
+- After implementing new commands or features
+- When fixing significant tooling issues
+- When changing architectural approaches
+
+**What to include**:
+- Intent behind the change
+- What specifically changed (without duplicating commit messages)
+- Why the change was made
+- Technical implementation details
+
+### Issues Tracker (issues.md)
+
+**Purpose**: Structured tracking of tooling tasks and improvements.
+
+**Issue ID Convention**:
+- Issues: `MW-XXXX` (MW = MeaningFool-Writing, XXXX = 0001-9999)
+- Sub-issues: `MW-XXXX-XX` (XX = 01-99)
+- Sub-sub-issues: `MW-XXXX-XX-XX`
+
+**Structure**:
+- Issues: Level 2 headers (`##`)
+- Sub-issues: Bullet points (`-`)
+- Sub-sub-issues: Nested bullet points (`  -`)
+
+**Workflow**:
+1. New issues are added to issues.md with next available ID
+2. When completed, move to devlog.md with implementation details
+3. Issues remain somewhat immutable - if approach changes, log reason in devlog and create new sub-issues
+4. This preserves the history of thinking and approach evolution
+
+**Important for AI Assistants**:
+- Check `.ai-orchestration/devlog.md` at session start to understand recent tooling changes
+- Consult `.ai-orchestration/issues.md` for planned work and ongoing tasks
+- Focus on tooling/automation only - content changes are not tracked here
+- Only add what is explicitly requested - no additional fields, status, dates, or sub-issues
+- Do not be eager or go beyond what is asked
+- Wait for explicit instructions before adding sub-issues or additional structure
+
 ## Architecture Details
 
 ### Why This Design?
