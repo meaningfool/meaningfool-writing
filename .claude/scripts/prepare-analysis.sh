@@ -5,17 +5,42 @@
 set -e
 
 # Load session variables from fetch phase
-if [ ! -f .daily_session ]; then
+# Find the most recent session file
+SESSION_FILE=""
+if [ -d ".daily" ]; then
+    SESSION_FILE=$(find .daily -name "session.env" -type f | sort | tail -1)
+fi
+
+if [ -z "$SESSION_FILE" ] || [ ! -f "$SESSION_FILE" ]; then
     echo "Error: Must run fetch-commits.sh first"
     exit 1
 fi
 
-source .daily_session
+source "$SESSION_FILE"
 
 echo "Phase 2: Preparing data for AI analysis..."
 
-# Create output filename
-OUTPUT_FILE="${TARGET_DATE}-daily-log.md"
+# Function to get unique filename with numbering
+get_unique_filename() {
+    local base_name="$1"
+    local counter=2
+    local output_file="$base_name"
+    
+    while [ -f "$output_file" ]; do
+        output_file="${base_name%.*} ($counter).${base_name##*.}"
+        counter=$((counter + 1))
+    done
+    
+    echo "$output_file"
+}
+
+# Create output filename (with numbering if needed)
+BASE_OUTPUT_FILE="${TARGET_DATE}-daily-log.md"
+OUTPUT_FILE=$(get_unique_filename "$BASE_OUTPUT_FILE")
+
+if [ "$OUTPUT_FILE" != "$BASE_OUTPUT_FILE" ]; then
+    echo "Daily log already exists, creating: $OUTPUT_FILE"
+fi
 
 # Start with simple structure - just repository headers
 cat > "$OUTPUT_FILE" << EOF
@@ -58,16 +83,6 @@ $DETAILS
 \`\`\`
 $CLAUDE_FILES
 \`\`\`
-
-**ANALYSIS TASK:**
-Generate 3-5 concise bullet points about what was learned, what went well, and what went wrong in this repository today. Focus on:
-- Technical challenges solved
-- Learning moments and insights
-- Process improvements or setbacks
-- Evolution of approach across commits
-- Changes to documentation/tooling (CLAUDE.md/.claude files)
-
-Format as simple bullet points, use sub-bullets only if needed for clarity.
 ANALYSIS_EOF
 done
 
@@ -79,7 +94,7 @@ echo ""
 echo "Analysis files ready:"
 find "$REPO_ANALYSIS_DIR" -name "*_analysis.md" -exec basename {} \; | head -5
 
-# Export final variables
-cat >> .daily_session << EOF
-OUTPUT_FILE=$OUTPUT_FILE
+# Export final variables (quote to handle parentheses)
+cat >> "$SESSION_FILE" << EOF
+OUTPUT_FILE="$OUTPUT_FILE"
 EOF

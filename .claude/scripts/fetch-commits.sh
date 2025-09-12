@@ -13,13 +13,47 @@ read -r START_TIME END_TIME <<< "$(get_time_range "$TARGET_DATE")"
 
 echo "Fetching commits for $TARGET_DATE..."
 
+# Check if we should reuse existing data
+if EXISTING_DATA_DIR=$(check_existing_data "$TARGET_DATE"); then
+    # Reuse existing data
+    COMMIT_DATA_FILE="$EXISTING_DATA_DIR/commits.json"
+    REPO_ANALYSIS_DIR="$EXISTING_DATA_DIR/repos"
+    
+    # Count existing commits for session
+    COMMIT_COUNT=$(jq -s 'length' "$COMMIT_DATA_FILE" 2>/dev/null || echo "0")
+    
+    # Export clean variables for next phase
+    cat > "$EXISTING_DATA_DIR/session.env" << EOF
+DATA_DIR=$EXISTING_DATA_DIR
+TARGET_DATE=$TARGET_DATE
+COMMIT_COUNT=$COMMIT_COUNT
+COMMIT_DATA_FILE=$COMMIT_DATA_FILE
+REPO_ANALYSIS_DIR=$REPO_ANALYSIS_DIR
+EOF
+    
+    echo "✓ Reusing existing data. Found $COMMIT_COUNT commits total"
+    exit 0
+fi
+
+# Run fresh data collection
+echo "Running fresh data collection..."
+
 # Get GitHub username
 USERNAME=$(get_github_username)
 echo "GitHub user: $USERNAME"
 
+# Remove any existing data for this target date (we're replacing it)
+if [ -d ".daily" ]; then
+    for dir in .daily/target-${TARGET_DATE}_run-*/; do
+        if [ -d "$dir" ]; then
+            echo "Removing existing data directory: $dir"
+            rm -rf "$dir"
+        fi
+    done
+fi
+
 # Create local data directory (avoids system temp permissions)
-DATA_DIR=$(create_data_dir)
-echo "DATA_DIR=$DATA_DIR" > .daily_session
+DATA_DIR=$(create_data_dir "$TARGET_DATE")
 COMMIT_DATA_FILE="$DATA_DIR/commits.json"
 REPO_ANALYSIS_DIR="$DATA_DIR/repos"
 mkdir -p "$REPO_ANALYSIS_DIR"
@@ -84,11 +118,12 @@ COMMIT_COUNT=$(jq -s 'length' "$COMMIT_DATA_FILE")
 echo "Found $COMMIT_COUNT commits total"
 
 # Export variables for next phase
-cat >> .daily_session << EOF
+cat > "$DATA_DIR/session.env" << EOF
+DATA_DIR=$DATA_DIR
 TARGET_DATE=$TARGET_DATE
 COMMIT_COUNT=$COMMIT_COUNT
 COMMIT_DATA_FILE=$COMMIT_DATA_FILE
 REPO_ANALYSIS_DIR=$REPO_ANALYSIS_DIR
 EOF
 
-echo "✓ Data collection complete. Variables saved to .daily_session"
+echo "✓ Data collection complete. Variables saved to $DATA_DIR/session.env"
