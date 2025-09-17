@@ -27,17 +27,6 @@ IMPORTANT FOR AI ASSISTANTS:
 - Wait for explicit instructions before adding sub-issues or additional structure
 -->
 
-## MW-0001: Create Issues with Slash Command
-**Sub-issues**:
-- MW-0001-01: Create the slash command
-- MW-0001-02: Slash command takes a long time and requires manual authorization
-**Discussion**: 
-- Chose single argument with "--" delimiter for separating title and description
-- Research findings on authorization:
-  - Frontmatter `allowed-tools` syntax: `allowed-tools: Bash(command:*), Write(path/*)` - unclear if session authorization still required
-  - Settings.json pre-authorization syntax: `{"permissions": {"allow": ["Edit(.ai-orchestration/*)"]}}` - eliminates authorization prompts
-  - Slash commands cannot bypass AI processing for pure bash execution - `!` prefix still involves Claude
-- Decision: Use settings.json permissions to pre-authorize Edit/Read tools for .ai-orchestration/ files
 
 ## MW-0002: Devlog needs better structure
 
@@ -46,6 +35,19 @@ Devlog should capture design decisions from issues, technical findings, and impl
 ## MW-0003: Add a close command to close issues
 
 Need to create a command that transfers completed issues from the issue tracker to the devlog with implementation details.
+
+**Sub-issues**:
+- MW-0003-01: Create a close command for a single issue as a whole
+- MW-0003-02: Update the documentation process in CLAUDE.md and related files
+- MW-0003-03: Extend the close command to handle closing sub-issues within issues that remain open
+
+**Discussion**:
+- Issue identification challenge: Full issue ID might be cumbersome, text-based identification could work better
+- Need to avoid reproducing commit messages in devlog - focus on technical learnings and decisions
+- Process needs to handle different levels (issues, sub-issues, sub-sub-issues) which may require different workflows
+- Decision: Use string-based identifier with disambiguation prompts when matches are ambiguous
+- Technical findings auto-detection: Analyze last 1-2 commits that likely relate to the closed issue to extract implementation details
+- Bash-centric approach for file manipulation between issues.md and devlog.md with format preservation
 
 ## MW-0004: Add a thoughts.md
 

@@ -110,6 +110,30 @@ Need systematic way to track tooling evolution and planned work, separate from c
   - MW-0001-02: Moved session files into data directories  
   - MW-0001-03: Implemented proper data replacement logic
 
+## 2025-09-12 - Issue Creation Slash Command System
+
+**Intent**: Implement slash command infrastructure for creating and tracking development issues with automated text processing.
+
+**What Changed**:
+- **Created `/issue` Slash Command**: Implemented `.claude/commands/issue.md` with frontmatter authorization for streamlined issue creation
+- **Established Issue ID Convention**: MW-XXXX format with hierarchical sub-issue numbering (MW-XXXX-XX)
+- **Research Authorization Approaches**: Compared frontmatter `allowed-tools` vs settings.json permissions for eliminating authorization prompts
+- **Integrated Text Processing**: Single argument with "--" delimiter for separating titles and descriptions, handles dictation cleanup
+
+**Why Changed**:
+Manual issue creation in issues.md was cumbersome and error-prone. Needed efficient way to capture issues during development sessions with proper ID assignment and formatting.
+
+**Technical Findings**:
+- **Authorization Scoping**: Settings.json permissions operate at tool level only, cannot be scoped to specific slash commands
+- **Bash Permission Limitations**: Bash patterns use prefix matching and "can be bypassed" according to documentation
+- **Frontmatter Authorization**: `allowed-tools` syntax unclear whether session authorization still required for execution
+- **Command Processing**: Slash commands cannot bypass AI processing for pure bash execution - `!` prefix still involves Claude
+
+**Completed Issues**:
+- ✓ MW-0001: Create Issues with Slash Command
+  - MW-0001-01: Create the slash command (implemented issue.md with frontmatter authorization)
+  - MW-0001-02: Slash command takes a long time and requires manual authorization (researched settings.json pre-authorization)
+
 ---
 
 *This devlog focuses exclusively on tooling and automation infrastructure. Content changes and article additions are not tracked here.*
