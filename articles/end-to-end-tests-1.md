@@ -1,8 +1,6 @@
 ---
 title: "End-to-End Testing: A Comprehensive Guide"
-description: "Learn the fundamentals of end-to-end testing and how to implement effective E2E test strategies"
 date: 2025-01-10
-author: "Test Author"
 tags: ["testing", "e2e", "automation", "quality"]
 ---
 

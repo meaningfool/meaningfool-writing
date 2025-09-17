@@ -1,7 +1,6 @@
 ---
 title: "Voice AI Maven Course Notes"
 date: 2025-09-01
-author: "Josselin Perrus"
 tags: ["ai", "voice", "agents"]
 ---
 

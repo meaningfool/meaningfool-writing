@@ -1,7 +1,6 @@
 ---
 title: "Modern Web Development Best Practices"
 date: 2025-01-15
-description: "Essential practices and patterns for building robust web applications in 2025"
 tags: ["web development", "javascript", "frontend", "best practices"]
 ---
 
