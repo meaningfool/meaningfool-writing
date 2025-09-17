@@ -4,18 +4,49 @@
 
 set -e
 
-# Load session variables from fetch phase
-# Find the most recent session file
-SESSION_FILE=""
-if [ -d ".daily" ]; then
-    SESSION_FILE=$(find .daily -name "session.env" -type f | sort | tail -1)
+# Accept date as first argument, or try to load from session
+if [ -n "$1" ]; then
+    # Date passed as argument
+    TARGET_DATE="$1"
+    echo "Using date from argument: $TARGET_DATE"
+    
+    # Find corresponding session directory
+    # Look for directories matching target-{TARGET_DATE}_run-*
+    SESSION_DIR=""
+    if [ -d ".daily" ]; then
+        for dir in .daily/target-${TARGET_DATE}_run-*/; do
+            if [ -d "$dir" ]; then
+                SESSION_DIR="${dir%/}"  # Remove trailing slash
+                break
+            fi
+        done
+    fi
+    
+    if [ -z "$SESSION_DIR" ] || [ ! -d "$SESSION_DIR" ]; then
+        echo "Error: No data found for date $TARGET_DATE"
+        echo "Please run fetch-commits.sh first"
+        exit 1
+    fi
+    
+    SESSION_FILE="$SESSION_DIR/session.env"
+    if [ ! -f "$SESSION_FILE" ]; then
+        echo "Error: Session file not found in $SESSION_DIR"
+        exit 1
+    fi
+else
+    # No argument, find most recent session
+    SESSION_FILE=""
+    if [ -d ".daily" ]; then
+        SESSION_FILE=$(find .daily -name "session.env" -type f | sort | tail -1)
+    fi
+    
+    if [ -z "$SESSION_FILE" ] || [ ! -f "$SESSION_FILE" ]; then
+        echo "Error: Must run fetch-commits.sh first or provide a date argument"
+        exit 1
+    fi
 fi
 
-if [ -z "$SESSION_FILE" ] || [ ! -f "$SESSION_FILE" ]; then
-    echo "Error: Must run fetch-commits.sh first"
-    exit 1
-fi
-
+# Load session variables
 source "$SESSION_FILE"
 
 echo "Phase 2: Preparing data for AI analysis..."

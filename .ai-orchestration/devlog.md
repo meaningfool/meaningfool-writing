@@ -134,6 +134,25 @@ Manual issue creation in issues.md was cumbersome and error-prone. Needed effici
   - MW-0001-01: Create the slash command (implemented issue.md with frontmatter authorization)
   - MW-0001-02: Slash command takes a long time and requires manual authorization (researched settings.json pre-authorization)
 
+## 2025-09-17 - Prepare-Analysis Script Date Argument Independence
+
+**Intent**: Make `prepare-analysis.sh` accept date arguments directly instead of relying solely on session files from `fetch-commits.sh`.
+
+**What Changed**:
+- **Direct Date Parameter**: Modified `prepare-analysis.sh` to accept date as first argument ($1)
+- **Session Directory Discovery**: Implemented logic to find session directories using pattern `target-{TARGET_DATE}_run-*`
+- **Backward Compatibility**: Maintained existing behavior when no argument provided (finds most recent session)
+- **Daily Command Update**: Modified `/daily` command to pass TARGET_DATE to prepare-analysis.sh after sourcing session
+
+**Why Changed**:
+The script was tightly coupled to fetch-commits.sh success. If fetch-commits failed or wasn't run, prepare-analysis couldn't function independently, limiting flexibility for debugging and manual runs.
+
+**Technical Details**:
+- Added conditional logic to check for date argument before falling back to session discovery
+- Updated directory pattern matching to align with actual `.daily/target-YYYY-MM-DD_run-*` structure
+- Enhanced error messaging to distinguish between missing data vs missing session files
+- Daily command now extracts TARGET_DATE from session and passes it explicitly
+
 ---
 
 *This devlog focuses exclusively on tooling and automation infrastructure. Content changes and article additions are not tracked here.*

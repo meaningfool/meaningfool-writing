@@ -62,7 +62,7 @@ echo "Data directory: $DATA_DIR"
 
 # Fetch all commits from all repos for the specified day
 echo "Scanning repositories..."
-gh api user/repos --paginate -q '.[].full_name' | while read -r repo; do
+while read -r repo; do
     # Fetch commits for this repo
     COMMITS=$(gh api "repos/$repo/commits?author=$USERNAME&since=$START_TIME&until=$END_TIME" 2>/dev/null || echo "[]")
     
@@ -101,23 +101,20 @@ gh api user/repos --paginate -q '.[].full_name' | while read -r repo; do
             echo "$COMMIT_DETAILS" | jq -r '.files[].filename' | grep -E '(CLAUDE\.md|\.claude/.*\.md)' >> "$REPO_FILE.claude_files" 2>/dev/null || true
         done
     fi
-done
+done < <(gh api user/repos --paginate -q '.[].full_name')
 
 # Collect all commits into a single file for overview
 find "$REPO_ANALYSIS_DIR" -name "*.commits" -exec cat {} \; > "$COMMIT_DATA_FILE" 2>/dev/null || echo "[]" > "$COMMIT_DATA_FILE"
 
-# Check if we found any commits
-if [ ! -s "$COMMIT_DATA_FILE" ]; then
-    echo "No commits found for $TARGET_DATE"
-    rm -rf "$TEMP_DIR"
-    exit 0
+# Count total commits (will be 0 if no commits found)
+if [ -s "$COMMIT_DATA_FILE" ]; then
+    COMMIT_COUNT=$(jq -s 'length' "$COMMIT_DATA_FILE")
+else
+    COMMIT_COUNT=0
 fi
-
-# Count total commits
-COMMIT_COUNT=$(jq -s 'length' "$COMMIT_DATA_FILE")
 echo "Found $COMMIT_COUNT commits total"
 
-# Export variables for next phase
+# Export variables for next phase (even if no commits found)
 cat > "$DATA_DIR/session.env" << EOF
 DATA_DIR=$DATA_DIR
 TARGET_DATE=$TARGET_DATE

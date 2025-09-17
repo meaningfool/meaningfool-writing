@@ -18,7 +18,8 @@ Generate a comprehensive daily development log by analyzing GitHub commits for t
 
 ## Phase 2: Prepare Analysis Framework  
 
-!.claude/scripts/prepare-analysis.sh
+# Extract the target date from the session file created by fetch-commits
+!SESSION_FILE=$(find .daily -name "session.env" -type f | sort | tail -1) && source "$SESSION_FILE" && .claude/scripts/prepare-analysis.sh "$TARGET_DATE"
 
 ## Phase 3: AI Analysis & Insights
 
