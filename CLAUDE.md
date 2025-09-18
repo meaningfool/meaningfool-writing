@@ -57,9 +57,9 @@ To publish content to the live website:
 ### What Happens When You Publish
 
 The `publish` command will:
-1. **Validate frontmatter** - Checks all articles in visible folders (articles/, daily-logs/, etc.)
-2. **Show validation results** - Lists any files with missing or invalid frontmatter
-3. **Trigger deployment** - Only if all validations pass
+1. **Validate frontmatter** - Uses `.claude/scripts/frontmatter-validation.sh` to check all articles in visible folders (articles/, daily-logs/, etc.)
+2. **Show validation results** - Lists any files with missing or invalid frontmatter with clear error messages
+3. **Trigger deployment** - Only if all validations pass; stops immediately if any issues are found
 
 If validation succeeds, the deployment process:
 1. **Content Update Workflow** runs in main site repository
@@ -81,16 +81,19 @@ If validation succeeds, the deployment process:
 
 **Most common issue**: Missing or incorrect frontmatter
 
-1. **Run validation commands**:
+1. **Run validation script**:
    ```bash
-   # Check which files are missing frontmatter
-   grep -L "^title:" *.md | grep -v CLAUDE.md | grep -v README.md
-   grep -L "^date:" *.md | grep -v CLAUDE.md | grep -v README.md
+   # Use the built-in validation script to check all content
+   .claude/scripts/frontmatter-validation.sh
    ```
+
+   This will show exactly which files are missing `title` or `date` fields.
 
 2. **Fix any files that appear** by adding proper frontmatter template
 
 3. **Verify date format**: Must be `YYYY-MM-DD` (no quotes, no time)
+
+**Note**: The `/publish` command automatically runs this validation before deploying, so you'll see these errors before any failed builds.
 
 ### Article Not Appearing After Publishing
 
@@ -172,6 +175,7 @@ The `.ai-orchestration/` directory contains files for tracking tooling developme
 - **Submodule Pointer**: Main site tracks specific commit of this repo
 - **GitHub Actions**: Automated workflows handle building and deployment
 - **GitHub Pages**: Final deployment target
+- **Validation Script**: `.claude/scripts/frontmatter-validation.sh` ensures all content has proper frontmatter before deployment
 
 ### Future Enhancements
 
@@ -186,8 +190,11 @@ The `.ai-orchestration/` directory contains files for tracking tooling developme
 # In this repository - commit your work
 git add . && git commit -m "Your message" && git push
 
-# From anywhere - publish to website
-gh workflow run update-content.yml --repo meaningfool/meaningfool.github.io
+# Validate frontmatter before publishing
+.claude/scripts/frontmatter-validation.sh
+
+# Publish to website (includes validation)
+/publish
 
 # Check publishing status
 gh run list --repo meaningfool/meaningfool.github.io --limit 3

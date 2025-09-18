@@ -1,7 +1,6 @@
 # Daily command working files
 .daily/
 .daily_session
-*-daily-log.md
 
 # Temporary files
 *.tmp
