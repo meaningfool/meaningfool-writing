@@ -6,4 +6,4 @@ allowed-tools: Bash(.claude/scripts/publish-all.sh)
 
 Validates frontmatter for all articles, then publishes content changes by running both workflows sequentially.
 
-!.claude/scripts/publish-all.sh
+!`.claude/scripts/publish-all.sh`

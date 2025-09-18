@@ -40,4 +40,5 @@ if [[ $VALIDATION_FAILED -eq 1 ]]; then
     exit 1
 fi
 
+echo "✅ Frontmatter validation passed! All articles have required title and date fields."
 exit 0
