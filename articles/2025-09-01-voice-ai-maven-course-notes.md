@@ -1,6 +1,6 @@
 ---
 title: "Voice AI Maven Course Notes"
-date: 2025-09-01
+date: 2025-09-01T00:00:00Z
 tags: ["ai", "voice", "agents"]
 ---
 
