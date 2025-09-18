@@ -1,22 +1,20 @@
 ---
-name: "This Article Has Bad Frontmatter"
-created: 2025-09-17
-categories: ["test", "validation"]
+title: "Testing Frontmatter Validation"
+date: 2025-09-17
+tags: ["test", "validation"]
 ---
 
-# Testing Bad Frontmatter
+# Testing Frontmatter Validation
 
-This article intentionally has incorrect frontmatter to test our validation system.
+This article was originally created with incorrect frontmatter to test our validation system, but has now been fixed.
 
-## What's Wrong?
+## What Was Fixed?
 
-Instead of the required fields:
-- `title` - we used `name`
-- `date` - we used `created`
-- `tags` - we used `categories`
+The frontmatter was corrected from:
+- `name` → `title`
+- `created` → `date`
+- `categories` → `tags`
 
-## Expected Behavior
+## Validation Success
 
-When we try to publish, the validation should catch these errors and prevent deployment until they're fixed.
-
-This helps ensure that only properly formatted articles make it to the live site.
+Now that all frontmatter is correct, this article should pass validation and be publishable along with the other content.

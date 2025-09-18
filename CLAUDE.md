@@ -14,14 +14,14 @@ meaningfool.github.io (Main Site Repository)
 ```
 
 **Key Points:**
-- This repository contains **only Markdown articles** - no site code, no workflows
-- The main site pulls content from here via Git submodule mechanism
+- This repository's purpose is to store and edit content. It mostly contains **only Markdown articles**.
+- Some of these articles (located in specific folders - see below) are the content of the main site that pulls that content from here via Git submodule mechanism
 - Changes here do NOT automatically deploy to the website
 - Manual publishing step required to update the live site
 
 ## Content Structure
 
-**CRITICAL**: Every article MUST have proper frontmatter or the build will fail.
+**CRITICAL**: Every article MUST have proper frontmatter or the build will fail. Articles requiring frontmatter are located in visible folders (like `articles/` or `daily-logs/`). Files at the root or in hidden folders (starting with `.`) do not need frontmatter.
 
 ### Required Frontmatter Template
 
@@ -31,7 +31,6 @@ meaningfool.github.io (Main Site Repository)
 ---
 title: "Your Article Title Here"
 date: 2025-09-11
-description: "Brief description of your article (optional but recommended)"
 tags: ["tag1", "tag2"]
 ---
 
@@ -45,62 +44,24 @@ Your article content goes here...
 - `date`: Date - Format as YYYY-MM-DD (no quotes)
 
 **Optional Fields:**
-- `description`: String - Brief description (must be quoted if used)
 - `tags`: Array - List of tags in brackets with quotes
-
-### Validation Before Publishing
-
-**ALWAYS run this command before committing to check for errors:**
-
-```bash
-# In the writing repo directory
-find . -name "*.md" ! -name "CLAUDE.md" ! -name "README.md" -exec echo "Checking: {}" \; -exec head -10 "{}" \;
-```
-
-**Manual frontmatter check:**
-```bash
-# Check if all articles have required frontmatter
-grep -L "^title:" *.md | grep -v CLAUDE.md | grep -v README.md
-grep -L "^date:" *.md | grep -v CLAUDE.md | grep -v README.md
-```
-
-If either command returns filenames, those files are missing required frontmatter.
 
 ## Publishing Workflow
 
-### Prerequisites Before Publishing
+To publish content to the live website:
 
-1. **Validate frontmatter** (run this first!):
-   ```bash
-   # Quick check for missing frontmatter
-   grep -L "^title:" *.md | grep -v CLAUDE.md | grep -v README.md
-   grep -L "^date:" *.md | grep -v CLAUDE.md | grep -v README.md
-   ```
-   
-   If any filenames appear, fix them before proceeding.
+1. **Commit your changes** (as you normally would)
 
-2. **Commit all changes** in this repository:
-   ```bash
-   git add .
-   git commit -m "Add/update article: [title]"
-   git push origin main
-   ```
-
-3. **Final verification**:
-   - Check article formatting
-   - Ensure no draft content is being published
-   - All frontmatter fields are properly formatted
-
-### Publishing Command
-
-To publish content to the live website, run this command from **anywhere** (you don't need to be in any specific directory):
-
-```bash
-gh workflow run update-content.yml --repo meaningfool/meaningfool.github.io
-```
+2. **Run the /publish command**
 
 ### What Happens When You Publish
 
+The `publish` command will:
+1. **Validate frontmatter** - Checks all articles in visible folders (articles/, daily-logs/, etc.)
+2. **Show validation results** - Lists any files with missing or invalid frontmatter
+3. **Trigger deployment** - Only if all validations pass
+
+If validation succeeds, the deployment process:
 1. **Content Update Workflow** runs in main site repository
 2. **Submodule Update**: Main site pulls latest content from this repo
 3. **Automatic Deployment**: Site rebuilds and deploys to GitHub Pages
