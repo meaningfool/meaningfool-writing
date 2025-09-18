@@ -56,10 +56,12 @@ To publish content to the live website:
 
 ### What Happens When You Publish
 
-The `publish` command will:
+The `publish` command executes `.claude/scripts/publish-all.sh` which:
 1. **Validate frontmatter** - Uses `.claude/scripts/frontmatter-validation.sh` to check all articles in visible folders (articles/, daily-logs/, etc.)
 2. **Show validation results** - Lists any files with missing or invalid frontmatter with clear error messages
-3. **Trigger deployment** - Only if all validations pass; stops immediately if any issues are found
+3. **Run content update** - Uses `.claude/scripts/run-content-update.sh` to trigger and wait for content workflow
+4. **Run deployment** - Uses `.claude/scripts/run-deployment.sh` to trigger and wait for deployment workflow
+5. **Stop on any failure** - Process halts immediately if validation or any workflow fails
 
 If validation succeeds, the deployment process:
 1. **Content Update Workflow** runs in main site repository
@@ -175,7 +177,11 @@ The `.ai-orchestration/` directory contains files for tracking tooling developme
 - **Submodule Pointer**: Main site tracks specific commit of this repo
 - **GitHub Actions**: Automated workflows handle building and deployment
 - **GitHub Pages**: Final deployment target
-- **Validation Script**: `.claude/scripts/frontmatter-validation.sh` ensures all content has proper frontmatter before deployment
+- **Publishing Pipeline**: Modular scripts in `.claude/scripts/` handle validation, content updates, and deployment
+  - `publish-all.sh`: Main orchestration script called by `/publish` command
+  - `frontmatter-validation.sh`: Validates all content has proper frontmatter
+  - `run-content-update.sh`: Handles content update workflow
+  - `run-deployment.sh`: Handles deployment workflow
 
 ### Future Enhancements
 
@@ -190,11 +196,15 @@ The `.ai-orchestration/` directory contains files for tracking tooling developme
 # In this repository - commit your work
 git add . && git commit -m "Your message" && git push
 
-# Validate frontmatter before publishing
+# Validate frontmatter manually (optional)
 .claude/scripts/frontmatter-validation.sh
 
-# Publish to website (includes validation)
+# Publish to website (includes validation + deployment)
 /publish
+
+# Run individual workflow components (if needed)
+.claude/scripts/run-content-update.sh
+.claude/scripts/run-deployment.sh
 
 # Check publishing status
 gh run list --repo meaningfool/meaningfool.github.io --limit 3
