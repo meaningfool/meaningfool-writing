@@ -10,7 +10,7 @@ End-to-end (E2E) testing is a methodology used to test whether the flow of an ap
 
 ## What is End-to-End Testing?
 
-End-to-end testing verifies that all components of a system can run under real-world scenarios. This type of testing covers the application from the beginning to the end, ensuring all integrated components work together as expected.
+End-to-end testing verifies that all.
 
 ### Key Benefits
 
