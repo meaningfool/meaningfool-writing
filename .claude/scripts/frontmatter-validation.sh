@@ -4,8 +4,8 @@ VALIDATION_FAILED=0
 MISSING_TITLE=()
 MISSING_DATE=()
 
-# Find and validate all content files
-for file in $(find . -type f -name "*.md" -not -path "./.*" | grep -v "^./[^/]*\.md$"); do
+# Find and validate all content files (exclude images directory)
+for file in $(find . -type f -name "*.md" -not -path "./.*" -not -path "./images/*" | grep -v "^./[^/]*\.md$"); do
     if ! grep -q "^title:" "$file"; then
         MISSING_TITLE+=("$file")
         VALIDATION_FAILED=1
