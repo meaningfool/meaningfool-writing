@@ -46,17 +46,17 @@ Your article content goes here...
 **Optional Fields:**
 - `tags`: Array - List of tags in brackets with quotes
 
-## Publishing Workflow
+## Website Rebuild Workflow
 
 To publish content to the live website:
 
 1. **Commit your changes** (as you normally would)
 
-2. **Run the /publish command**
+2. **Run the /rebuild-website command**
 
-### What Happens When You Publish
+### What Happens When You Rebuild the Website
 
-The `publish` command executes `.claude/scripts/publish-all.sh` which:
+The `rebuild-website` command executes `.claude/scripts/rebuild-website.sh` which:
 1. **Validate frontmatter** - Uses `.claude/scripts/frontmatter-validation.sh` to check all articles in visible folders (articles/, daily-logs/, etc.)
 2. **Show validation results** - Lists any files with missing or invalid frontmatter with clear error messages
 3. **Run content update** - Uses `.claude/scripts/run-content-update.sh` to trigger and wait for content workflow
@@ -95,9 +95,9 @@ If validation succeeds, the deployment process:
 
 3. **Verify date format**: Must be `YYYY-MM-DD` (no quotes, no time)
 
-**Note**: The `/publish` command automatically runs this validation before deploying, so you'll see these errors before any failed builds.
+**Note**: The `/rebuild-website` command automatically runs this validation before deploying, so you'll see these errors before any failed builds.
 
-### Article Not Appearing After Publishing
+### Article Not Appearing After Rebuilding Website
 
 1. Check workflow status:
    ```bash
@@ -108,7 +108,7 @@ If validation succeeds, the deployment process:
 
 3. Check article filename (should be lowercase with hyphens: `my-article.md`)
 
-### Publishing Command Not Working
+### Website Rebuild Command Not Working
 
 1. Ensure GitHub CLI is installed: `gh --version`
 2. Verify authentication: `gh auth status`
@@ -177,8 +177,8 @@ The `.ai-orchestration/` directory contains files for tracking tooling developme
 - **Submodule Pointer**: Main site tracks specific commit of this repo
 - **GitHub Actions**: Automated workflows handle building and deployment
 - **GitHub Pages**: Final deployment target
-- **Publishing Pipeline**: Modular scripts in `.claude/scripts/` handle validation, content updates, and deployment
-  - `publish-all.sh`: Main orchestration script called by `/publish` command
+- **Website Rebuild Pipeline**: Modular scripts in `.claude/scripts/` handle validation, content updates, and deployment
+  - `rebuild-website.sh`: Main orchestration script called by `/rebuild-website` command
   - `frontmatter-validation.sh`: Validates all content has proper frontmatter
   - `run-content-update.sh`: Handles content update workflow
   - `run-deployment.sh`: Handles deployment workflow
@@ -199,8 +199,8 @@ git add . && git commit -m "Your message" && git push
 # Validate frontmatter manually (optional)
 .claude/scripts/frontmatter-validation.sh
 
-# Publish to website (includes validation + deployment)
-/publish
+# Rebuild website (includes validation + deployment)
+/rebuild-website
 
 # Run individual workflow components (if needed)
 .claude/scripts/run-content-update.sh
