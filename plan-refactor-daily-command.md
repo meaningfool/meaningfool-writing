@@ -58,17 +58,17 @@ Refactor the `/daily` command from a complex multi-script system to a single, st
 - [x] Add Claude analysis instructions from spec
 - [x] Test command file with Claude
 
-### 8. Integration testing
-- [ ] Test /daily with no arguments (today)
-- [ ] Test /daily yesterday
-- [ ] Test /daily -3 (3 days ago)
-- [ ] Test /daily 2025-09-20 (specific date)
-- [ ] Test file numbering by running command twice
+### 8. Integration testing ✓
+- [x] Test /daily with no arguments (today)
+- [x] Test /daily yesterday
+- [x] Test /daily -3 (3 days ago)
+- [x] Test /daily 2025-09-20 (specific date)
+- [x] Test file numbering by running command twice
 
-### 9. Documentation and cleanup
-- [ ] Update CLAUDE.md with new daily command info
-- [ ] Verify all old artifacts are removed
-- [ ] Final test of complete workflow
+### 9. Documentation and cleanup ✓
+- [x] Update CLAUDE.md with new daily command info
+- [x] Verify all old artifacts are removed
+- [x] Final test of complete workflow
 
 ## Implementation Notes
 

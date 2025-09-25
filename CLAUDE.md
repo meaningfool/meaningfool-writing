@@ -182,6 +182,7 @@ The `.ai-orchestration/` directory contains files for tracking tooling developme
   - `frontmatter-validation.sh`: Validates all content has proper frontmatter
   - `run-content-update.sh`: Handles content update workflow
   - `run-deployment.sh`: Handles deployment workflow
+  - `daily.sh`: Generates daily development logs from GitHub commits
 
 ### Future Enhancements
 
@@ -201,6 +202,12 @@ git add . && git commit -m "Your message" && git push
 
 # Rebuild website (includes validation + deployment)
 /rebuild-website
+
+# Generate daily development log
+/daily                    # Today's commits
+/daily yesterday         # Yesterday's commits
+/daily -3               # 3 days ago
+/daily 2025-09-20      # Specific date
 
 # Run individual workflow components (if needed)
 .claude/scripts/run-content-update.sh
