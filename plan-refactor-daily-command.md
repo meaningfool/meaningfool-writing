@@ -25,13 +25,13 @@ Refactor the `/daily` command from a complex multi-script system to a single, st
 - [x] Format times in ISO format with timezone offset
 - [x] Test get_time_range with different dates and timezones
 
-### 4. Implement check_output_file function
-- [ ] Check if base filename exists (YYYY-MM-DD-daily-log.md)
-- [ ] Find highest numbered variant if file exists
-- [ ] Return next available filename with proper numbering
-- [ ] Test check_output_file with no existing file
-- [ ] Test check_output_file with one existing file
-- [ ] Test check_output_file with multiple numbered files
+### 4. Implement check_output_file function ✓
+- [x] Check if base filename exists (YYYY-MM-DD-daily-log.md)
+- [x] Find highest numbered variant if file exists
+- [x] Return next available filename with proper numbering
+- [x] Test check_output_file with no existing file
+- [x] Test check_output_file with one existing file
+- [x] Test check_output_file with multiple numbered files
 
 ### 5. Implement fetch_commits function
 - [ ] List all repositories with activity on target date

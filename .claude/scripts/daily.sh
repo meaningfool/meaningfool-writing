@@ -61,7 +61,25 @@ get_time_range() {
 # Input: target date YYYY-MM-DD
 # Output: available filename
 check_output_file() {
-    echo "TODO: Implement check_output_file"
+    local target_date="$1"
+    local base_filename="daily-logs/${target_date}-daily-log.md"
+
+    # Check if base file exists
+    if [[ ! -f "$base_filename" ]]; then
+        echo "$base_filename"
+        return
+    fi
+
+    # Find the next available numbered variant
+    local counter=2
+    local output_file="daily-logs/${target_date}-daily-log(${counter}).md"
+
+    while [[ -f "$output_file" ]]; do
+        ((counter++))
+        output_file="daily-logs/${target_date}-daily-log(${counter}).md"
+    done
+
+    echo "$output_file"
 }
 
 # Function: fetch_commits
