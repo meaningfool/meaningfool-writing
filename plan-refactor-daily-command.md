@@ -5,10 +5,10 @@ Refactor the `/daily` command from a complex multi-script system to a single, st
 
 ## Todo List
 
-### 1. Clean up old implementation
-- [ ] Remove old script files (fetch-commits.sh, prepare-analysis.sh, utils.sh)
-- [ ] Remove old daily.md command file
-- [ ] Clean up .daily working directory
+### 1. Clean up old implementation ✓
+- [x] Remove old script files (fetch-commits.sh, prepare-analysis.sh, utils.sh)
+- [x] Remove old daily.md command file
+- [x] Clean up .daily working directory
 
 ### 2. Create script structure and validate_date function
 - [ ] Create daily.sh with basic structure and function stubs
