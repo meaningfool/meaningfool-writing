@@ -7,7 +7,15 @@ allowed-tools: Write, Bash(.claude/scripts/daily.sh:*)
 
 ## Instructions
 
-Your role is to output a daily analysis of my commits on Github. You'll find below the list of individual commits, grouped by repo. Output your analysis followed by the list of raw commits
+Your role is to output a daily analysis of my commits on Github. To do so:
+1- Use the Write tool to create a file with the path OUTPUT_FILE
+2- Add the frontmatter with the key-values:
+title: "Activity Log - TARGET_DATE" (replace TARGET_DATE by its value provided below)
+date: TARGET_DATE
+3- Add an "ANALYSIS" section with the result of your analysis below
+4- Add a "RAW COMMITS" section with the exact list of commits provided in the RAW COMMITS section below
+
+## Analysis
 
 Here are the items I want you to focus on for your analysis:
 - **Technical challenges solved** - what specific problems were encountered, how they were debugged, and what solutions were implemented. For this look specifically at code file diffs and at changes in plans that are reflected in .md files.
@@ -27,7 +35,7 @@ It should look like so:
 - An so on...
 
 
-## Retrieved commits
+## Raw commits
 
 !.claude/scripts/daily.sh "$1"
 
