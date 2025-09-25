@@ -52,11 +52,11 @@ Refactor the `/daily` command from a complex multi-script system to a single, st
 - [x] Output all data in format for Claude
 - [x] Test main function with various arguments
 
-### 7. Create daily.md command file
-- [ ] Set allowed-tools to Write only
-- [ ] Add script execution directive
-- [ ] Add Claude analysis instructions from spec
-- [ ] Test command file with Claude
+### 7. Create daily.md command file ✓
+- [x] Set allowed-tools to Write only
+- [x] Add script execution directive
+- [x] Add Claude analysis instructions from spec
+- [x] Test command file with Claude
 
 ### 8. Integration testing
 - [ ] Test /daily with no arguments (today)
