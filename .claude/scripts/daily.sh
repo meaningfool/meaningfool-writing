@@ -193,7 +193,59 @@ fetch_commits() {
 
 # Main function
 main() {
-    echo "TODO: Implement main"
+    local date_arg="${1:-}"
+
+    echo "Daily Development Log Generator" >&2
+    echo "==============================" >&2
+    echo "" >&2
+
+    # Step 1: Validate date and handle errors
+    echo "Validating date argument: '$date_arg'" >&2
+
+    local target_date
+    if ! target_date=$(validate_date "$date_arg"); then
+        echo "FATAL: Date validation failed" >&2
+        exit 1
+    fi
+
+    echo "Target date: $target_date" >&2
+    echo "" >&2
+
+    # Step 2: Get time range boundaries
+    echo "Getting time range for $target_date..." >&2
+
+    local time_range
+    time_range=$(get_time_range "$target_date")
+
+    local start_time=$(echo "$time_range" | grep "START_TIME=" | cut -d'=' -f2)
+    local end_time=$(echo "$time_range" | grep "END_TIME=" | cut -d'=' -f2)
+
+    echo "Time range: $start_time to $end_time" >&2
+    echo "" >&2
+
+    # Step 3: Get output filename
+    echo "Checking output file availability..." >&2
+
+    local output_file
+    output_file=$(check_output_file "$target_date")
+
+    echo "Output file: $output_file" >&2
+    echo "" >&2
+
+    # Step 4: Fetch commits and prepare output for Claude
+    echo "Fetching commits..." >&2
+
+    local commit_data
+    commit_data=$(fetch_commits "$target_date" "$start_time" "$end_time")
+
+    echo "=== DATA FOR CLAUDE ===" >&2
+    echo "" >&2
+
+    # Output metadata and commit data for Claude to process
+    echo "OUTPUT_FILE=$output_file"
+    echo "TARGET_DATE=$target_date"
+    echo ""
+    echo "$commit_data"
 }
 
 # Execute main function with all arguments
