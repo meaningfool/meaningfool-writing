@@ -34,9 +34,9 @@ Refactor the `/daily` command from a complex multi-script system to a single, st
 - [x] Test check_output_file with multiple numbered files
 
 ### 5. Implement fetch_commits function
-- [ ] List all repositories with activity on target date
-- [ ] Fetch commits for each repository in date range
-- [ ] Extract commit SHA, message, and file list
+- [ ] Use GitHub Search API to find all commits on target date
+- [ ] Group commits by repository from search results
+- [ ] Extract commit SHA, message, and file list for each commit
 - [ ] Format output with proper spacing and structure
 - [ ] Add error handling for API failures and rate limits
 - [ ] Test fetch_commits with date having multiple repos
