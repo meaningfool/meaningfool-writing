@@ -86,7 +86,109 @@ check_output_file() {
 # Input: target_date, start_time, end_time
 # Output: formatted commit data
 fetch_commits() {
-    echo "TODO: Implement fetch_commits"
+    local target_date="$1"
+    local start_time="$2"
+    local end_time="$3"
+
+    echo "=== COMMIT DATA ===" >&2
+    echo "Fetching commits for $target_date..." >&2
+    echo "" >&2
+
+    # Get current GitHub username
+    local username=$(gh api user --jq '.login' 2>/dev/null)
+    if [[ -z "$username" ]]; then
+        echo "ERROR: Unable to get GitHub username" >&2
+        return 1
+    fi
+
+    echo "Searching for commits by $username on $target_date..." >&2
+
+    # Use GitHub Search API to find commits by author on target date
+    local search_query="author:${username} committer-date:${target_date}"
+
+    # Search for commits using GitHub API
+    local search_results=$(gh api search/commits \
+        --method GET \
+        -f q="$search_query" \
+        --jq '.items[] | {sha: .sha, message: (.commit.message | split("\n")[0]), repository: .repository.full_name}' \
+        2>&1)
+
+    local api_exit_code=$?
+
+    if [[ $api_exit_code -ne 0 ]]; then
+        if echo "$search_results" | grep -q "rate limit"; then
+            echo "ERROR: GitHub API rate limit exceeded. Please try again later." >&2
+        elif echo "$search_results" | grep -q "403"; then
+            echo "ERROR: GitHub API access forbidden. Check your authentication." >&2
+        elif echo "$search_results" | grep -q "404"; then
+            echo "ERROR: GitHub API endpoint not found. The search/commits API may not be available." >&2
+        else
+            echo "ERROR: Failed to search commits: $search_results" >&2
+        fi
+        return 1
+    fi
+
+    if [[ -z "$search_results" ]]; then
+        echo "No commits found for $username on $target_date" >&2
+        return 0
+    fi
+
+    echo "Processing search results..." >&2
+    echo "" >&2
+
+    # Group commits by repository using temporary files instead of associative arrays
+    local temp_dir=$(mktemp -d)
+
+    while IFS= read -r commit_json; do
+        if [[ -n "$commit_json" ]]; then
+            local repo=$(echo "$commit_json" | jq -r '.repository')
+            local sha=$(echo "$commit_json" | jq -r '.sha')
+            local message=$(echo "$commit_json" | jq -r '.message')
+
+            # Create/append to repo-specific file
+            local repo_file="$temp_dir/$(echo "$repo" | tr '/' '_')"
+            echo "$sha|$message" >> "$repo_file"
+        fi
+    done <<< "$search_results"
+
+    echo "Extracting commit details and files..." >&2
+
+    # Extract and output commit data with file lists
+    for repo_file in "$temp_dir"/*; do
+        if [[ -f "$repo_file" ]]; then
+            local repo=$(basename "$repo_file" | tr '_' '/')
+
+            while IFS= read -r commit_line; do
+                if [[ -n "$commit_line" ]]; then
+                    local sha=$(echo "$commit_line" | cut -d'|' -f1)
+                    local message=$(echo "$commit_line" | cut -d'|' -f2-)
+
+                    # Fetch files changed in this commit
+                    local files_result=$(gh api "repos/$repo/commits/$sha" \
+                        --jq '.files[].filename' 2>&1)
+
+                    local files=""
+                    if [[ $? -eq 0 ]]; then
+                        files=$(echo "$files_result" | tr '\n' ', ' | sed 's/,$//')
+                    else
+                        echo "Warning: Could not fetch file list for commit $sha" >&2
+                    fi
+
+                    echo "Repository: $repo"
+                    echo "Commit: [$sha] $message"
+                    if [[ -n "$files" ]]; then
+                        echo "Files: $files"
+                    fi
+                    echo ""
+                fi
+            done < "$repo_file"
+        fi
+    done
+
+    # Clean up temporary directory
+    rm -rf "$temp_dir"
+
+    echo "Commit extraction completed." >&2
 }
 
 # Main function
