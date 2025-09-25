@@ -10,20 +10,20 @@ Refactor the `/daily` command from a complex multi-script system to a single, st
 - [x] Remove old daily.md command file
 - [x] Clean up .daily working directory
 
-### 2. Create script structure and validate_date function
-- [ ] Create daily.sh with basic structure and function stubs
-- [ ] Implement validate_date for empty input (default to today)
-- [ ] Implement validate_date for 'yesterday' keyword
-- [ ] Implement validate_date for relative dates (-N format)
-- [ ] Implement validate_date for YYYY-MM-DD format
-- [ ] Add error handling for invalid date formats
-- [ ] Test validate_date with all input types
+### 2. Create script structure and validate_date function ✓
+- [x] Create daily.sh with basic structure and function stubs
+- [x] Implement validate_date for empty input (default to today)
+- [x] Implement validate_date for 'yesterday' keyword
+- [x] Implement validate_date for relative dates (-N format)
+- [x] Implement validate_date for YYYY-MM-DD format
+- [x] Add error handling for invalid date formats
+- [x] Test validate_date with all input types
 
-### 3. Implement get_time_range function
-- [ ] Calculate start time (00:00:00) in local timezone
-- [ ] Calculate end time (23:59:59) in local timezone
-- [ ] Format times in ISO format with timezone offset
-- [ ] Test get_time_range with different dates and timezones
+### 3. Implement get_time_range function ✓
+- [x] Calculate start time (00:00:00) in local timezone
+- [x] Calculate end time (23:59:59) in local timezone
+- [x] Format times in ISO format with timezone offset
+- [x] Test get_time_range with different dates and timezones
 
 ### 4. Implement check_output_file function
 - [ ] Check if base filename exists (YYYY-MM-DD-daily-log.md)

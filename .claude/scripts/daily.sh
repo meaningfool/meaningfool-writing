@@ -42,7 +42,19 @@ validate_date() {
 # Input: validated date in YYYY-MM-DD
 # Output: START_TIME and END_TIME in ISO format with local timezone
 get_time_range() {
-    echo "TODO: Implement get_time_range"
+    local target_date="$1"
+
+    # Get timezone offset
+    local tz_offset=$(date "+%z" | sed 's/^\([+-][0-9][0-9]\)\([0-9][0-9]\)$/\1:\2/')
+
+    # Calculate start time (00:00:00) in local timezone
+    local start_time="${target_date}T00:00:00${tz_offset}"
+
+    # Calculate end time (23:59:59) in local timezone
+    local end_time="${target_date}T23:59:59${tz_offset}"
+
+    echo "START_TIME=$start_time"
+    echo "END_TIME=$end_time"
 }
 
 # Function: check_output_file
