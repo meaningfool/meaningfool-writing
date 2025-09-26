@@ -17,21 +17,23 @@ date: TARGET_DATE
 
 ## Analysis
 
-Here are the items I want you to focus on for your analysis:
-- **Technical challenges solved** - what specific problems were encountered, how they were debugged, and what solutions were implemented. For this look specifically at code file diffs and at changes in plans that are reflected in .md files.
-- **New technologies, specific findings about how their idiosyncracies** - trials and mistakes lead, and research, lead to discoveries about why things won't work or work only in certain ways. This is useful knowledge that we want to surface. For that look in particular at .md files which un packs our thinking, our plans, what we tried, and our research.
-- **AI process improvements or setbacks** - the AI-assisted development process is harnessed using .md files. Some of them contain general instructions (claude.md), some capture automation processes (in .claude). And some others (those that contains plans, or logs of what happened for example) support the AI-assisted development process to store short-term memories mostly and keep track of what was done and what needs to be done. For these last ones, it's not so much the exact content than how they are used to support the development process that is interesting. So analyze all those files to identify if and how we changed the process.
+The analysis' goal is to surface:
+- **Why we did things** rather than what was done. So focus on the intent. This intent can play over multiple commits, so paying specific attention to the spec files and the plan files can help understand the underlying reason to do things. For each overarching challenge that we tackled: 
+  - Make it a single item
+  - Report on lower level challenges of interest. Specifically report  on the decisions that were made if there were multiple options, and if there is research that has been logged in the commits.
+- **What we learned** if there were some important learning items, ones that had some level of intricacies and required some research, summarize what was learnt.
+- **AI process improvements or setbacks** - the AI-assisted development process is harnessed using claude.md files. Document changes to this file that indicate a new policy or some instruction regarding a specific problem. But ignore changes that are documenting things that you already reported upon in the challenges we tackled.
 
-Each extracted item is formatted a new bullet point. And for each extracted item provide some details in the form of up to 3 sub-bullet points each of one sentence maximum.
+The report being about the daily activity is likely to be 1 to 10 items. And 0 sometimes. Ignore changes that are just content changes, or those for which there is no clear intent.
 
 It should look like so:
 - **Item title A**:
-  - Description sentence 1
-  - Description sentence 2
+  - Details: sentence 1
+  - Details: sentence 2
 - **Item title B**:
-  - Description sentence 1
-  - Description sentence 2
-  - Description sentence 3
+  - Details: sentence 1
+  - Details: sentence 2
+  - Details: sentence 3
 - An so on...
 
 
