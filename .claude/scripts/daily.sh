@@ -110,7 +110,7 @@ fetch_commits() {
     local search_results=$(gh api search/commits \
         --method GET \
         -f q="$search_query" \
-        --jq '.items[] | {sha: .sha, message: (.commit.message | split("\n")[0]), repository: .repository.full_name}' \
+        --jq '.items[] | {sha: .sha, repository: .repository.full_name, subject: (.commit.message | split("\n")[0]), body: (.commit.message | split("\n") | if length > 1 then .[1:] | join("\n") | sub("^\\n+"; "") else "" end)} | @base64' \
         2>&1)
 
     local api_exit_code=$?
@@ -139,15 +139,14 @@ fetch_commits() {
     # Group commits by repository using temporary files instead of associative arrays
     local temp_dir=$(mktemp -d)
 
-    while IFS= read -r commit_json; do
-        if [[ -n "$commit_json" ]]; then
+    while IFS= read -r encoded_commit; do
+        if [[ -n "$encoded_commit" ]]; then
+            local commit_json=$(echo "$encoded_commit" | base64 --decode)
             local repo=$(echo "$commit_json" | jq -r '.repository')
-            local sha=$(echo "$commit_json" | jq -r '.sha')
-            local message=$(echo "$commit_json" | jq -r '.message')
 
             # Create/append to repo-specific file
             local repo_file="$temp_dir/$(echo "$repo" | tr '/' '_')"
-            echo "$sha|$message" >> "$repo_file"
+            echo "$commit_json" >> "$repo_file"
         fi
     done <<< "$search_results"
 
@@ -160,8 +159,9 @@ fetch_commits() {
 
             while IFS= read -r commit_line; do
                 if [[ -n "$commit_line" ]]; then
-                    local sha=$(echo "$commit_line" | cut -d'|' -f1)
-                    local message=$(echo "$commit_line" | cut -d'|' -f2-)
+                    local sha=$(echo "$commit_line" | jq -r '.sha')
+                    local subject=$(echo "$commit_line" | jq -r '.subject')
+                    local body=$(echo "$commit_line" | jq -r '.body')
 
                     # Fetch files changed in this commit
                     local files_result=$(gh api "repos/$repo/commits/$sha" \
@@ -175,7 +175,17 @@ fetch_commits() {
                     fi
 
                     echo "Repository: $repo"
-                    echo "Commit: [$sha] $message"
+                    echo "Commit: [$sha] $subject"
+                    if [[ -n "${body//[[:space:]]/}" ]]; then
+                        echo "Description:"
+                        while IFS= read -r body_line || [[ -n "$body_line" ]]; do
+                            if [[ -n "$body_line" ]]; then
+                                echo "  $body_line"
+                            else
+                                echo "  "
+                            fi
+                        done <<< "$body"
+                    fi
                     if [[ -n "$files" ]]; then
                         echo "Files: $files"
                     fi
