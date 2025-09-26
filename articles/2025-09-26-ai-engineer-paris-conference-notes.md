@@ -1,6 +1,6 @@
 ---
 title: "AI Engineer Paris Conference Notes"
-date: 2025-09-26T19:42:04+0200
+date: 2025-09-26
 tags: ["ai", "conference", "notes"]
 ---
 
