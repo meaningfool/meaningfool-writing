@@ -163,17 +163,6 @@ fetch_commits() {
                     local subject=$(echo "$commit_line" | jq -r '.subject')
                     local body=$(echo "$commit_line" | jq -r '.body')
 
-                    # Fetch files changed in this commit
-                    local files_result=$(gh api "repos/$repo/commits/$sha" \
-                        --jq '.files[].filename' 2>&1)
-
-                    local files=""
-                    if [[ $? -eq 0 ]]; then
-                        files=$(echo "$files_result" | tr '\n' ', ' | sed 's/,$//')
-                    else
-                        echo "Warning: Could not fetch file list for commit $sha" >&2
-                    fi
-
                     echo "Repository: $repo"
                     echo "Commit: [$sha] $subject"
                     if [[ -n "${body//[[:space:]]/}" ]]; then
@@ -186,8 +175,38 @@ fetch_commits() {
                             fi
                         done <<< "$body"
                     fi
-                    if [[ -n "$files" ]]; then
-                        echo "Files: $files"
+                    local files_json=""
+                    if files_json=$(gh api "repos/$repo/commits/$sha" --jq '.files' 2>/dev/null); then
+                        local tracked_files=$(echo "$files_json" | jq -c '
+                            [.[] | select(
+                                (.filename | test("(?i)claude\\.md$")) or
+                                ((.filename | test("\\.md$")) and ((.filename | test("(?i)spec")) or (.filename | test("(?i)plan"))))
+                            )]
+                        ')
+                        local tracked_count=$(echo "$tracked_files" | jq 'length')
+                        if (( tracked_count > 0 )); then
+                            echo "Tracked file changes:"
+                            while IFS= read -r file_entry; do
+                                if [[ -n "$file_entry" ]]; then
+                                    local filename=$(echo "$file_entry" | jq -r '.filename')
+                                    local additions=$(echo "$file_entry" | jq -r '.additions')
+                                    local deletions=$(echo "$file_entry" | jq -r '.deletions')
+                                    local changes=$(echo "$file_entry" | jq -r '.changes')
+                                    local patch=$(echo "$file_entry" | jq -r '.patch // ""')
+                                    echo "  ${filename} — +${additions} / -${deletions} (${changes} total)"
+                                    echo '```diff'
+                                    if [[ -n "$patch" ]]; then
+                                        printf '%s\n' "$patch"
+                                    else
+                                        echo "(No patch available)"
+                                    fi
+                                    echo '```'
+                                    echo ""
+                                fi
+                            done < <(echo "$tracked_files" | jq -c '.[]')
+                        fi
+                    else
+                        echo "Warning: Could not fetch file details for commit $sha" >&2
                     fi
                     echo ""
                 fi
