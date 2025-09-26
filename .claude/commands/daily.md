@@ -20,20 +20,23 @@ date: TARGET_DATE
 The analysis' goal is to surface:
 - **Why we did things** rather than what was done. So focus on the intent. This intent can play over multiple commits, so paying specific attention to the spec files and the plan files can help understand the underlying reason to do things. For each overarching challenge that we tackled: 
   - Make it a single item
-  - Report on lower level challenges of interest. Specifically report  on the decisions that were made if there were multiple options, and if there is research that has been logged in the commits.
-- **What we learned** if there were some important learning items, ones that had some level of intricacies and required some research, summarize what was learnt.
+  - Report on lower level challenges of interest as sub-items Specifically report  on the decisions that were made if there were multiple options, and if there is research that has been logged in the commits.
+- **What we learned** if there were some important learning items, ones that had some level of intricacies and required some research, summarize what was learnt. If you find in the commit messages some "LEARNINGS" or similar section, replicate them as they are, unchanged.
 - **AI process improvements or setbacks** - the AI-assisted development process is harnessed using claude.md files. Document changes to this file that indicate a new policy or some instruction regarding a specific problem. But ignore changes that are documenting things that you already reported upon in the challenges we tackled.
 
 The report being about the daily activity is likely to be 1 to 10 items. And 0 sometimes. Ignore changes that are just content changes, or those for which there is no clear intent.
 
 It should look like so:
 - **Item title A**:
-  - Details: sentence 1
-  - Details: sentence 2
+  - Sub-item 1
+  - Sub-item 2
+  - ...
+  - Sub-item n
 - **Item title B**:
-  - Details: sentence 1
-  - Details: sentence 2
-  - Details: sentence 3
+  - Sub-item 1
+  - Sub-item 2
+  - ...
+  - Sub-item p
 - An so on...
 
 
