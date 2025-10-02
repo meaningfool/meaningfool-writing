@@ -1,6 +1,6 @@
 ---
 title: "Faster answers, better questions"
-date: 2025-01-22T00:00:00Z
+date: 2025-01-22
 tags: ["speed"]
 ---
 

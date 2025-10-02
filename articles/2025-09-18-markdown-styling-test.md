@@ -1,6 +1,6 @@
 ---
 title: "Markdown Styling Test Article"
-date: 2025-09-18T00:00:00Z
+date: 2025-09-18
 tags: ["markdown", "testing", "css", "styling"]
 ---
 
