@@ -1,65 +1,44 @@
-# Cost of Change: The Missing Half of Agile
+# Cost of Change is Agile's ceiling
 
-**I long believed that slicing the work was at the foundation of  Agile.**\
-Smaller chunks meant delivering value faster.\
-Smaller chunks meant the ability to reduce WIP and increase flow.\
-As a PM that's also what I kept hearing and reading about.\
-
-
-**Until I discovered it's only half of the story.** \
-Cost of change is the other half.\
-Cost of change is the time it takes to make a change, but also plan, debug,  deploy...
-
-\
-**Cost of change is Agile's ceiling.**\
-The harder, the longer it takes to make a change, the less agile you can be. 
+**I long believed that slicing the work was at the foundation of  Agile.**
+Smaller chunks meant delivering value faster.
+Smaller chunks meant the ability to reduce WIP and increase flow.
+As a PM that's also what I kept hearing and reading about.
 
 
-
-Let's break this down.\
-\
-**High Cost of change breeds "get it right the first time" mindsets.**\
-When  changes are expensive, you better know precisely what you are doing before you do it.\
-When changes are expensive, it makes sense to invest time in upfront planning and design.
+**Until I discovered it's only half of the story.** 
+Cutting things into ever tinier pieces
+Won't move the needle if cost of change is high.
 
 
-
-**High Cost of change incentivize delaying and bundling the work.** \
-When 2 changes at once cost less than 2 changes separately\*, it makes sense to bundle changes. \
-The higher the cost of change, the more sense it makes to delay changes until they can be bundled in larger deliveries.
+**Cost of change is what it sounds like:**
+It's the time it costs for making a change, but also planning, debugging,  deploying...
 
 
+**Cost of change++ == Anticipate++**
+Expensive changes means you better know precisely what you are doing before you do it.
+Expensive changes means it makes sense to invest time in upfront planning and design.
 
-**With high Cost of change, Agile is out of reach.**\
-Because high cost of change favors larger scopes and fewer iterations.\
+
+**High Cost of change incentivizes delaying and bundling the work.**
+That means larger scopes and fewer iterations.
 When change is expensive, waterfall is the rational choice.
 
 
-
-**Cost of change is the largely underrated driver of what you can achieve.**\
-Cost of change dictates how the work is done.\
-Cost of change dictates what your options are.\
-I wish someone had laid this out that clearly to me.\
+**So Cost of Change is Agile's ceiling.**
+It's the tide you are swimming against
+But surprisingly, product people don't talk about it.
 
 
-Looking forward
+**The very role of Product Manager depends on high Cost of change**
+Because high Cost of Change makes specialization and coordination inevitable.
 
 
+**So what happens if/when AI collapses the software cost of change?**
+What is now the limiting factor? 
+What happens to Product Managers?
+Do we keep anticipating and planning as much as we do?
 
-**What happens when AI collapses the software cost of change?**\
-What are the non-software costs of change that remain?\
-How is the work organization changing?\
-Do we keep planning as much as we do?
-
-
-
-**How is the  cost of change different for data and AI products?**\
-Can we expect that tooling and practices will bring data and models cost of change down as it did for code?\
-What roles will be impacted first as the cost of change decreases? 
-
-
-
-\*Cost of change is subadditive meaning that $cost(x+y)<cost(x)+cost(y)$. As illustration linear functions such as $h(x)=ax+b$ with $a,b > 0$ are subadditive.
 
 
 
