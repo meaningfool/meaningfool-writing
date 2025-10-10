@@ -19,31 +19,28 @@ We order, reorder, discuss, schedule and align. We love tending to those lists o
 
 **We plan because we fear uncertainty.**
 We need the sense of control it provides.
+It's our copium.
 
 
-**We value planning more than it's worth**
-First, because it's our copium.
-But also because we don't notice 
-When cost of change is dropping
+**Planning is actually not a defect, it's been hardwired through evolution**
+When so many dangers loom that survival hangs to anticipate what could go wrong,
+When the world is a place where cost of change is infinitely high (death)
+Planning is highly desirable. And over-planning preferable to under-planning.
 
 
-**Where change is cheap, planning is irresponsible.**
+**But where change is cheap, planning is irresponsible.**
 When you can revert past decisions at no cost, 
 When you can switch directions instantly, 
 Anticipation is not only a waste of time, 
 Anticipation is also a waste of optionality.
 
 
-**Delay decisions until the last responsible moment** (Poppendieck)
-That means intentionally not planning, resisting the incentives
-Anti-planning means resisting personal and organizational urges to plan.
+**Cost of change is dropping and we did not notice**
+Or rather our hardwired brain has a hard time adjusting.
+Meaning we miss-allocate our energy where cost of change used to be high, 
+Instead of where it's remaining relatively higher.
 
-
-
-**Anti-planning's value skyrockets as the cost of change collapses**
-Vanishing cost of change lowers the bar as to what decisions can be delayed.
-But people not used to actively searching to delay probably did not notice
-
-
-
-Planning is self-reinforcing.
+**AI shifts the cost of change landscape, but not uniformely**
+Those who can intentionally not plan, 
+Who can resist the incentives to do so,
+Are the most likely to graident-ascent this new reality.
