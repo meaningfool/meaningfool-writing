@@ -68,11 +68,12 @@ The journey would be bottom - up,  and up only as much as needed.
 But for now, I have to be content going back to the waterfall habits of try and think ahead about everything.
 And get it wrong.
 
-And that's what I've seen people doing recently: accept that you are going to get it wrong. 
-And adopt another practice from the high-cost-of-change times: 
-1. Prototype to discover. 
+And that's what I've seen people doing recently: accept that you are going to get it wrong.
+And adopt another practice from the high-cost-of-change times:
+1. Prototype to discover.
 2. Keep the specs, and trash the prototype
 
+---
 
 Related links:
 - [A look at Spec Kit, GitHub’s spec-driven software development toolkit](https://ainativedev.io/news/a-look-at-spec-kit-githubs-spec-driven-software-development-toolkit) from Tessl blog (Tessl is a spec-driven agent company that gets some of it right IMO). Highlights : 
