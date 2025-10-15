@@ -5,12 +5,3 @@ thought: The world is divided into 2 camps: the prolifics and the frugals. AI is
 
 thought: the bigger the system the higher the probability that it grows. 
 
-articles: 
-- https://www.gladia.io/blog/introducing-partial-transcripts
-
----
-date: 2025-09-30
-
-articles:
-- https://mariozechner.at/posts/2025-08-15-mcp-vs-cli/
-- https://mariozechner.at/posts/2025-08-03-cchistory/
