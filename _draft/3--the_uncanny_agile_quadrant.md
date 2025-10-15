@@ -1,5 +1,17 @@
 # The uncanny Agile quadrant
 
+Slicing the work, of all Agile "practices", is the most impactful one.
+Or so it seems, at least in the product management community.
+How to slice, not to slice, INVEST, and so on.
+
+And indeed, if you can slice into smaller vertical pieces, there is less work to get it in front of users.
+And so a shorter time to the next iteration.
+Smaller slices means faster iterations, and faster value.
+
+But there is a much stronger antagonist force at play: the cost of change.
+High cost of change implies bundling the work
+
+
 "Is this going to be like all the other times where we say we'll iterate, but we stop after V1?"\
 This was our Head of design laying down the hard truth
 

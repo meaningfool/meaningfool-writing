@@ -1,6 +1,6 @@
 # Cost of Change is Agile's ceiling
 
-**I long believed that slicing the work was at the foundation of  Agile.**
+**I long believed that slicing the work was at the foundation of Agile.**
 Smaller chunks meant delivering value faster.
 Smaller chunks meant the ability to reduce WIP and increase flow.
 As a PM that's also what I kept hearing and reading about.
