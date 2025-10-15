@@ -1,3 +1,9 @@
+---
+title: "Spec-driven development has it backwards"
+date: 2025-10-15
+tags: []
+---
+
 # Spec-driven development has it backwards
 
 ## My initial skepticism
