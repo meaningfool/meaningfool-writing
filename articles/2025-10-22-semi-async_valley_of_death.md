@@ -1,3 +1,9 @@
+---
+title: "The semi-async valley of death"
+date: 2025-10-22
+tags: []
+---
+
 # The semi-async valley of death
 
 ![The Semi-Async Valley of Death](../images/semi-async_vallley_of_death.png)
