@@ -1,35 +1,23 @@
 Themes to add:
 - Forcing functions: TDD, not having a PM / designer, bug free policy
-- Coordination costs
 - Size does not matter: coupling does
-- specs / test / code => which is first-class citizen ?
-
+- 
+- What's a feedback loop -> cost of change -> cost of building vs cost of change tradeoff -> productization is about lowering cost of building -> different dynamic in software
+- User Stories are a flat-earthers' thing
 
 
 # The overlooked value of XP
-Lots of noise : frameworks focus on the wrong things. 
+
 2 important things : 
 1. talk to users / customers
 2. Keep cost of change low (that's how you keep iterating fast)
-Make the change easy, make the easy change
+
+gaussian talk to users + ship fast -> frameworks -> talk to users + keep cost of change low (that's XP)
 
 
 --------------     SECTION    --------------
 
 What is cost of change made of?
-
---------------     SECTION    --------------
-
-Scope vs cost of change
-Managing the scope helps, but 
-[https://imgflip.com/i/9xw3sb](https://imgflip.com/i/9xw3sb)
-
-
---------------     SECTION    --------------
-
-
-# We can't stop planning even when we should
-
 
 
 --------------     SECTION    --------------
@@ -83,13 +71,4 @@ Forcing function\
 Delay decisions until the last reasonable moment
 
 
-
---------------     SECTION    --------------
-
-
-## From Cost of change to bloated orgs
-
-If you start from higher than normal cost of change, bloated org
-
-High cost of change -> role specialisation -> larger orgs -> increased coordination costs -> higher cost of change
 
