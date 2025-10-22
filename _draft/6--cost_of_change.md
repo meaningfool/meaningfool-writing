@@ -2,64 +2,66 @@
 
 ## Why it matters
 
-[Reference earlier writing about cost of change being Agile's ceiling]
+If you look at a feedback loop, it's actually a back and forth between you and the world:
+- (A) You push something into the world
+- (B) The world responds to your proposal
+[ADD IMAGE: someone trowing something at the world]
 
-The cost of change shapes how we work more than any methodology or framework. Yet we rarely examine what it actually is, or how it behaves mathematically.
+The length of your feedback loop is T(A) + T(B).
+But as Kent Beck [puts it](https://tidyfirst.substack.com/p/change), in software cost(software) ~= cost(change)
+[ADD IMAGE]
 
-## What is cost of change?
+So... cost of change matters to understand and act on the feedback loop.
+Cost of change matters... to understand software building dynamics.
+Cost of change matters... to understand where and how AI has an impact.
 
-Cost of change is everything that makes a change take time and effort.
+But surprisingly I find Cost of change to be a little discussed topic.
 
-**The technical layer:**
-- Writing/modifying the code itself
-- Running tests and fixing failures
-- Deployment processes
-- Integration and compatibility work
+So here is an article breaking it down. 
+For myself, and for anyone interested.
+
+## cost(software) ~= cost(change)
+
+First I think it's worth contemplating what it means that cost(software) ~= cost(change).
+To be complete: cost(total) = cost(initial) + cost(change)
+But over the lifecycle of a software cost(initial) << cost(change)
+
+That's assuming that cost(change) is low enough.
+For the sake of the argument, let's consider the case where cost(change)=infinity
+Meaning it's materially impossible to make a change. 
+Then, what you can do is start over. 
+
+When you build a bridge wrong, you may have to tear it down and rebuild it. 
+The physical world has this property of generally having a high cost of change.
+
+But software is different. 
+Cost of change is significantly lower. 
+
+But that does not mean it is insignificant, or fixed for everyone.
+Quite the opposite actually.
+It's a defining force. 
+But strangely it looks like only XP bothers to care about it.
+
+## What makes up the cost of change?
+
+Again quoting Kent Beck, cost of change is the cost to understand, modify, validate and deploy
+[ADD IMAGE]
+
+This is the *software* cost of change.
+
+If you consider that you are selling a product, you might add: 
+- The cost of distribution
+- The cost of adoption
 
 **The distribution layer:**
-- Pushing changes to users
-- On-premise or embedded software updates (requires physical access or coordination)
+- On-premise or embedded software updates (requires physical access or coordination, security audits,...)
 - App store review processes
-- Staged rollouts and monitoring
 
 **The adoption layer:**
 - User documentation updates
 - Training materials and sessions
-- Support team preparation
-- Communication and change management
+- Support team and partners enablement
 
-All of these contribute to how long it takes for a change to take effect on the user side.
-
-## Cost of building vs cost of change
-
-When we create software, we build a first version, then make changes to it.
-
-As Kent Beck says: **in software, the cost of making something is essentially the cost of change.** After the initial version, everything is modification.
-
-### A comparison: tailoring vs mass production
-
-**Traditional tailoring:**
-- High cost of building (each piece custom-made)
-- High cost of change (alterations require similar effort)
-- Roughly equivalent costs for creation and modification
-
-**Mass production:**
-- Very low unit cost of building (standardized, optimized)
-- Very high cost of change (requires retooling, new molds, new production lines)
-- Productization trades flexibility for volume
-
-The trade-off is clear: lower building costs come at the expense of higher change costs.
-
-### Software's unique dynamic
-
-Software sits in a different position. Unlike physical goods:
-- Cost of change can be much lower
-- No physical constraints or retooling required
-- Changes can be deployed instantly to all users (in theory)
-
-Yet we often treat software development like mass production—optimizing for the first build rather than for change. This is a category error.
-
-Many people don't distinguish between cost of building and cost of change. They optimize for the wrong thing.
 
 ## The mathematics of cost of change
 
@@ -120,34 +122,11 @@ All of this leads to:
 - Big bang releases are riskier to deploy
 - Upfront planning becomes self-justifying overhead
 
-## The only way out
+----
 
-You can't slice your way out of high cost of change.
+HOOK
+2 important things : 
+1. talk to users / customers
+2. Keep cost of change low (that's how you keep iterating fast)
 
-The only escape route: **reduce the cost of change itself.**
-
-Lower fixed costs:
-- Automate deployment
-- Speed up testing
-- Streamline reviews
-- Make rollbacks trivial
-
-Lower rework costs:
-- Better tooling for understanding impact
-- Safer refactoring capabilities
-- Incremental migration paths
-- Feature flags and gradual rollouts
-
-Once cost of change drops, smaller iterations become rational. Agile practices become possible, not just aspirational.
-
-But until then, waterfall is the economically sensible choice—no matter what we tell ourselves about being "agile."
-
----
-
-## Notes for expansion
-
-- Add specific examples of cost of change in different contexts (mobile apps, embedded systems, SaaS, etc.)
-- Explore how AI impacts different layers of cost of change
-- Discuss measurement: how do you know if your cost of change is high?
-- Connect to the slicing fallacy article
-- Consider a section on "false reductions" in cost of change (things that seem to help but don't)
+gaussian talk to users + ship fast -> frameworks -> talk to users + keep cost of change low (that's XP)

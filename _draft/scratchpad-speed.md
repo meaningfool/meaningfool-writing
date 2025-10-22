@@ -2,22 +2,9 @@ Themes to add:
 - Forcing functions: TDD, not having a PM / designer, bug free policy
 - Size does not matter: coupling does
 - 
-- What's a feedback loop -> cost of change -> cost of building vs cost of change tradeoff -> productization is about lowering cost of building -> different dynamic in software
 - User Stories are a flat-earthers' thing
 
 
-# The overlooked value of XP
-
-2 important things : 
-1. talk to users / customers
-2. Keep cost of change low (that's how you keep iterating fast)
-
-gaussian talk to users + ship fast -> frameworks -> talk to users + keep cost of change low (that's XP)
-
-
---------------     SECTION    --------------
-
-What is cost of change made of?
 
 
 --------------     SECTION    --------------

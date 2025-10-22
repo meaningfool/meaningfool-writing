@@ -1,3 +1,6 @@
+- There is no difference between functional spec and technical spec / fog of war
+
+
 # Fog of war
 
 **Building a solution is navigating a decision tree.**
