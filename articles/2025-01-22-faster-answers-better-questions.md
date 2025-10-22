@@ -18,4 +18,6 @@ Thinking about how programming and product building are being changed by the cha
 
 - But when the response time falls below a certain threshold though, **the process switches to INTERACTIVE**: we stop planning ahead, we get started and let our hands do the thinking. It’s a fundamentally different search strategy (different path, different results) which, I would argue, produces **superior results as it requires less assumptions about the problem**.
 
-- It feels like it’s what GenAI / CodeGen tools are taking us to interactive land for at least part of the process. Already, building a simple prototype has become a conversation.
+- It feels like it's what GenAI / CodeGen tools are taking us to interactive land for at least part of the process. Already, building a simple prototype has become a conversation.
+
+![Problem-solution space exploration strategies](../images/substack-test-image.webp)
