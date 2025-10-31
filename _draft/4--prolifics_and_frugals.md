@@ -19,12 +19,11 @@ It assumes a lot.
 **Prolifics are best positioned to leverage AI**
 It fits their nature.
 It amplifies their natural inclination.
+But unless they can harness AI to better distill 
+They are at risk of drowning in their own output
 
-**At the risk of drowning in their own output**
-Because AI won't help where they lack
-As it struggles to extract essence.
-
-**Frugals may actually benefit the most**
+**So frugals may actually benefit the most**
 If they can add volume to their production.
-If they can find a way to harness AI.
-Which means experimenting prolifically first...
+If they can get started and deal with the initial mess.
+At least for a moment. 
+Long enough to figure out how to work with their new prolific partner.
