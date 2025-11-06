@@ -1,26 +1,23 @@
 # The Slicing Fallacy
 
 **You cannot slice your way out of slow iterations**
-Despite what's commonly claimed. That's the slicing fallacy.
-Because only lower cost of change will.
+Despite what's commonly claimed. 
+That's the slicing fallacy.
 
-**Slicing only works when change is cheap.**
-Because high cost of change creates an incentive to bundle the work.
-Cost of change is subadditive, meaning cost(A) + cost(B) > cost(A+B)
-Cost of change is a gravity force: the higher it is, the harder it is to escape it.
+**Because slicing only works when change is cheap.**
+The higher the Cost of Change the stronger the "bundling" forces:
+When 2 small changes cost more than a larger one, you bundle the work.
 
-**Slow and bulky iterations are self-reinforcing**
-Stakeholders understand this math intuitively:
-If the next iteration is far away
-You preemptively load the first release with everything they can.
+**Slicing with high Cost of Change is like swimming against the tide.**
+Iterations speed does not pick up: the frictions are too high.
+Thin slices get thicker and bundled together.
 
-**The only escape route is to reduce cost of change first.**
-Once the additional cost of thinner slices becomes bearable
-Can you start to iterate more often.
+**The only escape route is to reduce Cost of Change first.**
+
 
 -----
 
 HOOKS
 Is this Agile?
-Beckham: say the truth
+Beckham: say the truth (we iterate fast - we slice vertically - we iterate after a few months)
 [https://imgflip.com/i/9xw3sb](https://imgflip.com/i/9xw3sb)

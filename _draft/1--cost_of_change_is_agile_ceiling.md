@@ -15,29 +15,26 @@ Won't move the needle if cost of change is high.
 It's the time it costs for making a change, but also planning, debugging,  deploying...
 
 
-**Cost of change++ == Anticipate++**
+**High Cost of change incentivizes Anticipation**
 Expensive changes means you better know precisely what you are doing before you do it.
 Expensive changes means it makes sense to invest time in upfront planning and design.
 
 
-**High Cost of change incentivizes delaying and bundling the work.**
-That means larger scopes and fewer iterations.
+**High Cost of change incentivizes larger scopes and fewer iterations.**
+Because 2 small changes are more expensive than a larger one.
+
+
+**Cost of Change is Agile's ceiling.**
 When change is expensive, waterfall is the rational choice.
 
 
-**So Cost of Change is Agile's ceiling.**
-It's the tide you are swimming against
-But surprisingly, product people don't talk about it.
-
-
-**The very role of Product Manager depends on high Cost of change**
-Because high Cost of Change makes specialization and coordination inevitable.
+**But product people don't talk about it (or do they?)**
+Maybe because the very role of Product Manager depends on high Cost of change.
 
 
 **So what happens if/when AI collapses the software cost of change?**
-What is now the limiting factor? 
-What happens to Product Managers?
-Do we keep anticipating and planning as much as we do?
+Do we finally get to be more Agile?
+Do we still need product managers?
 
 
 

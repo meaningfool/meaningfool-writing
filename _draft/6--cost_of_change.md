@@ -7,15 +7,21 @@ If you look at a feedback loop, it's actually a back and forth between you and t
 - (B) The world responds to your proposal
 [ADD IMAGE: someone trowing something at the world]
 
-The length of your feedback loop is T(A) + T(B).
-But as Kent Beck [puts it](https://tidyfirst.substack.com/p/change), in software cost(software) ~= cost(change)
-[ADD IMAGE]
+From inception to response, the length of your feedback loop is T(feedback) = T(A) + T(B)
+There is some level of control on T(B), but you mostly have control on how fast you get to ship.
 
-So... cost of change matters to understand and act on the feedback loop.
-Cost of change matters... to understand software building dynamics.
-Cost of change matters... to understand where and how AI has an impact.
+But "shipping" is a rather unspecific term. 
+As Kent Beck [puts it](https://tidyfirst.substack.com/p/change):
+- cost(software) = cost(initial) + cost(change)
+- But since software is continuously evolving cost(software) ~= cost(change)
 
-But surprisingly I find Cost of change to be a little discussed topic.
+![Kent Beck's Cost of Change](../images/kent-beck_cost-of-change.png)
+
+So, although the term Cost of Change is seldomly referenced, that's mostly what's at stake when we talk about:
+> Shortening the feedback loop
+> Shipping faster
+
+But Cost of Change is also the best vantage point to consider the impact of AI and code generation.
 
 So here is an article breaking it down. 
 For myself, and for anyone interested.

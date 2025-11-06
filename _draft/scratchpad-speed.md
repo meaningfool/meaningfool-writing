@@ -1,7 +1,7 @@
 Themes to add:
 - Forcing functions: TDD, not having a PM / designer, bug free policy
 - Size does not matter: coupling does
-- 
+- what generates specialization
 - User Stories are a flat-earthers' thing
 
 
