@@ -5,43 +5,57 @@
 If you look at a feedback loop, it's actually a back and forth between you and the world:
 - (A) You push something into the world
 - (B) The world responds to your proposal
-[ADD IMAGE: someone trowing something at the world]
+- Go back to (A)
+[ADD IMAGE: someone trowing something at the world + T(feedback) = T(A) + T(B)]
 
-From inception to response, the length of your feedback loop is T(feedback) = T(A) + T(B)
-There is some level of control on T(B), but you mostly have control on how fast you get to ship.
+Shortening the feedback loop means acting on: 
+- T(A): the time it takes to ship 
+- T(B): the time it takes to ellicit and collect a response
 
-But "shipping" is a rather unspecific term. 
+The Cost of Change is a key aspect of reducing T(A). 
+However it's seldomly referenced (maybe because talent - talking about "cracked" engineers - and work intensity - yes these "9-9-6" talks - often prevail in the discussion).
+fogottent part - harder to nail
+
+It's a 1st reason for an article: can we better define Cost of change? 
+
+Cost of change is also an invisible fault line in the software community:
+Some people assume it to be high, and other to be low
+With starck contrasts in terms of how software gets built.
+It's a 2nd reason for an article: how does cost of change affects software design?
+
+Also, in previous posts, I've made an (mostly) unsubstantiated claim that high cost of change pushes towards slower iterations because: 
+> cost(A) + cost(B) >> cost(A+B)
+That's a 3rd reason for an article: what is the math behind the cost of change?
+
+Finally, how can we act on the cost of change
+
+
+## part 1
+What's in cost of change
+Obvious ways to lower: automation & catching problems early
+Developer tooling (including AI) / Devops => I understand them as mean to lower the fixed component of the cost of change
+
+but also more subtle 
+!= philosophies : 
+- upfront design vs JIT design
+- avoid rework vs embrace rework by making changes inexpensive
+## cost(software) ~= cost(change)
+
 As Kent Beck [puts it](https://tidyfirst.substack.com/p/change):
 - cost(software) = cost(initial) + cost(change)
-- But since software is continuously evolving cost(software) ~= cost(change)
+- but cost(initial) << cost(change) over the software lifecycle
+- So cost(software) ~= cost(change)
 
 ![Kent Beck's Cost of Change](../images/kent-beck_cost-of-change.png)
 
-So, although the term Cost of Change is seldomly referenced, that's mostly what's at stake when we talk about:
-> Shortening the feedback loop
-> Shipping faster
 
-But Cost of Change is also the best vantage point to consider the impact of AI and code generation.
+Let's zoom out from software for a moment: 
+- When cost of change is so high (as it is for physical infrastructure) it makes sense to plan ahead and get things right the first time. Hence the architects.
+- When cost of change is higher than the cost(initial), you have something that you'd rather throw away than change.
+- Ideally you would have both low cost(initial) and low cost(change), but there is usually a tradeoff: (costly but customizable) vs (simple but specialized)
 
-So here is an article breaking it down. 
-For myself, and for anyone interested.
 
-## cost(software) ~= cost(change)
-
-First I think it's worth contemplating what it means that cost(software) ~= cost(change).
-To be complete: cost(total) = cost(initial) + cost(change)
-But over the lifecycle of a software cost(initial) << cost(change)
-
-That's assuming that cost(change) is low enough.
-For the sake of the argument, let's consider the case where cost(change)=infinity
-Meaning it's materially impossible to make a change. 
-Then, what you can do is start over. 
-
-When you build a bridge wrong, you may have to tear it down and rebuild it. 
-The physical world has this property of generally having a high cost of change.
-
-But software is different. 
-Cost of change is significantly lower. 
+Software is different from physical products as its Cost of change is significantly lower. 
 
 But that does not mean it is insignificant, or fixed for everyone.
 Quite the opposite actually.

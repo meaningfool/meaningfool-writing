@@ -1,6 +1,7 @@
 Themes to add:
 - Forcing functions: TDD, not having a PM / designer, bug free policy
 - Size does not matter: coupling does
+- 2 philosophies: intelligent design vs emergent design
 - what generates specialization
 - User Stories are a flat-earthers' thing
 
