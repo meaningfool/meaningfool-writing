@@ -1,11 +1,16 @@
 Themes to add:
-- Forcing functions: TDD, not having a PM / designer, bug free policy
+- Forcing functions: TDD, not having a PM / designer, bug free policy (policy over process, policy = principle = what is acceptable / what is not, it should be uncomfortable, compounding effects)
 - Size does not matter: coupling does
 - 2 philosophies: intelligent design vs emergent design
 - what generates specialization
 - User Stories are a flat-earthers' thing
 
 
+
+Cost of change is also an invisible fault line in the software community:
+Some people assume it to be high, and other to be low
+With starck contrasts in terms of how software gets built.
+It's a 2nd reason for an article: how does cost of change affects software design?
 
 
 --------------     SECTION    --------------

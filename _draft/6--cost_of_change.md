@@ -2,85 +2,53 @@
 
 ## Why it matters
 
-If you look at a feedback loop, it's actually a back and forth between you and the world:
-- (A) You push something into the world
-- (B) The world responds to your proposal
-- Go back to (A)
-[ADD IMAGE: someone trowing something at the world + T(feedback) = T(A) + T(B)]
+The time it takes to ship software comes down to 3 terms:
+- The skill / talent of the team measured as units of work shipped per unit of time
+- The effort / work intensity measured as the amount of time worked per day
+- The Cost of change as a multiplication factor of the work required to make a change
 
-Shortening the feedback loop means acting on: 
-- T(A): the time it takes to ship 
-- T(B): the time it takes to ellicit and collect a response
+Time to ship = Work x Cost of change / (Talent * Effort)
 
-The Cost of Change is a key aspect of reducing T(A). 
-However it's seldomly referenced (maybe because talent - talking about "cracked" engineers - and work intensity - yes these "9-9-6" talks - often prevail in the discussion).
-fogottent part - harder to nail
+Talent and effort receive more than their fair share of attention (the perenial "cracked engineer" and "9-9-6" work weeks). 
+Cost of change, not so much.
 
-It's a 1st reason for an article: can we better define Cost of change? 
+## What is the Cost of change
 
-Cost of change is also an invisible fault line in the software community:
-Some people assume it to be high, and other to be low
-With starck contrasts in terms of how software gets built.
-It's a 2nd reason for an article: how does cost of change affects software design?
-
-Also, in previous posts, I've made an (mostly) unsubstantiated claim that high cost of change pushes towards slower iterations because: 
-> cost(A) + cost(B) >> cost(A+B)
-That's a 3rd reason for an article: what is the math behind the cost of change?
-
-Finally, how can we act on the cost of change
-
-
-## part 1
-What's in cost of change
-Obvious ways to lower: automation & catching problems early
-Developer tooling (including AI) / Devops => I understand them as mean to lower the fixed component of the cost of change
-
-but also more subtle 
-!= philosophies : 
-- upfront design vs JIT design
-- avoid rework vs embrace rework by making changes inexpensive
-## cost(software) ~= cost(change)
-
-As Kent Beck [puts it](https://tidyfirst.substack.com/p/change):
-- cost(software) = cost(initial) + cost(change)
-- but cost(initial) << cost(change) over the software lifecycle
-- So cost(software) ~= cost(change)
-
-![Kent Beck's Cost of Change](../images/kent-beck_cost-of-change.png)
-
-
-Let's zoom out from software for a moment: 
-- When cost of change is so high (as it is for physical infrastructure) it makes sense to plan ahead and get things right the first time. Hence the architects.
-- When cost of change is higher than the cost(initial), you have something that you'd rather throw away than change.
-- Ideally you would have both low cost(initial) and low cost(change), but there is usually a tradeoff: (costly but customizable) vs (simple but specialized)
-
-
-Software is different from physical products as its Cost of change is significantly lower. 
-
-But that does not mean it is insignificant, or fixed for everyone.
-Quite the opposite actually.
-It's a defining force. 
-But strangely it looks like only XP bothers to care about it.
-
-## What makes up the cost of change?
-
-Again quoting Kent Beck, cost of change is the cost to understand, modify, validate and deploy
+This concept, was, to my knowledge, introduced by XP practitioners. 
+And I draw heavily from Kent Beck, founder of XP, and one of the Agile manifesto authors.
+So, quoting Kent Beck, cost of change is the time it takes to:
+- Understand what needs to be changed
+- Make the change
+- Validate the change
+- Deploy the change
 [ADD IMAGE]
 
-This is the *software* cost of change.
+This, however, is only the *software* cost of change.
 
-If you consider that you are selling a product, you might add: 
-- The cost of distribution
-- The cost of adoption
+If you consider that you are selling a product, you might add the time it takes to: 
+- Distribute the change to your users (think on-premise or embedded software and the associated delays: security audits, app store reviews,...)
+- Enable your users to use the software (think B2B: documentation, training, possibly through partners that need to be trained first)
 
-**The distribution layer:**
-- On-premise or embedded software updates (requires physical access or coordination, security audits,...)
-- App store review processes
+## How to lower the *software* Cost of change
 
-**The adoption layer:**
-- User documentation updates
-- Training materials and sessions
-- Support team and partners enablement
+I am not going to break any news here. 
+The most regarded way to lower the software cost of change is automation:
+- Developer tooling in general: CI/CD, observability tools,... 
+- AI code generation is also a way to automate parts of the process.
+
+XP however looks beyond automation with practices such as pair/ensemble programming or TDD, that help with the understanding and validation of the code.
+
+That's because XP "embraces" change at the core of its philosophy.
+That's because XP understands the 2nd-order dynamics of the cost of change:
+- Change always comes at a cost.
+- 1st order: lowered cost of change means less time for the same output
+- 2nd order: lowered cost of change means we can afford more "rework".
+
+Said differently, XP embraces rework where other software development philosophie try to avoid it.
+But to better understand, we need to look at the mathematics of the cost of change.
+
+
+
 
 
 ## The mathematics of cost of change
@@ -124,6 +92,15 @@ The bigger the fixed costs and rework, the stronger this inequality.
 This is why high cost of change naturally pushes you toward waterfall approaches, regardless of what methodology you claim to follow.
 
 ## The waterfall trap
+
+Also, in previous posts, I've made an (mostly) unsubstantiated claim that high cost of change pushes towards slower iterations because: 
+> cost(A) + cost(B) >> cost(A+B)
+That's a 3rd reason for an article: what is the math behind the cost of change?
+
+but also more subtle 
+!= philosophies : 
+- upfront design vs JIT design
+- avoid rework vs embrace rework by making changes inexpensive
 
 When cost of change is high:
 - You want to minimize the number of changes
