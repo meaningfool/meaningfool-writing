@@ -76,36 +76,36 @@ At both ends of the spectrum, 2 design philosophies:
 - "Big design upfront" that minimizes rework by de-risking and planning ahead.
 - "eXtreme Programming" that optimizes for change, considering its cost is outweighted by the benefits of smaller assumptions.
 
-The prime example of XP optimizing for change is TDD: the constraint to build code that satisfies only the conditions encoded in the tests and nothing more is a forcing function to make as few assumptions as possible. But the tests and the code are very likely to evolve (i.e. change) as you move forward.
-
-Cost of change defines how hard or easy the tradeoff is for the XP end of the spectrum:
-- You would not build a bridge using XP.
-- AI code generation makes it much easier to plan much less ahead by lowering the software cost of change.
+An example of XP optimizing for change is TDD: the constraint to build code that satisfies only the conditions encoded in the tests and nothing more is a forcing function to make as few assumptions as possible. But the tests and the code are very likely to evolve as you move forward.
 
 [ADD DIAGRAM: change in ordinate, assumption in absis, 3 lines with various beginnings from the ordinate -> higher intercept means higher cost of change]
 
+In that tension between BDUF and XP, a high cost of change creates a pull towards "Big design upfront".
+
+It always make sense to lower the cost of change when you can, but:
+- While for Big design upfront, a lowered cost of change is an end in itself (resulting in a lowered total cost of change)
+- For XP it is a means to increase the total amount of change (at the same total cost of change)
+
+For BDUF, a lowered cost of change is desirable, for XP it's a necessity. 
+
+[ADD DIAGRAM: ax and a'x, BDUF down and to the left and XP down and to the right]
+
+
 ## Bundling forces
 
+The cost of change impacts a second dimension: the iteration frequency.
+Cost of change, contrary to my earlier diagrams, has a non-0 intercept, i.e. it has fixed component
+Functions such as f(x) = ax + b with a,b > 0 have a nice-sounding characteristics : they are sub-additive.
 
+That means that f(a)+f(b) > f(a+b)
 
-write about assumption vs change
+Saying that the cost of change is subadditive means that
+Cost(Change A) + Cost(Change B) > Cost(Change A + Change B)
 
-I don't know a developer that would not take the win associated with automation: 
-- Making changes is costly
-- Anything that can lower that cost is welcome
-- Although changes should be prevented as much as possible in the first place.
+[ADD DIAGRAM showing subadditivity for ax+b]
 
-The assumption for some (most?) developers is that rework is a waste of time. 
-So if you can anticipate a future change, you should either do it immediately or make it so that it will be easy to implement.
+Or said differently bundling 2 changes makes sense, and even more so as subadditivity increases.
 
-On the other hand XP litterally "embraces" change (Kent Beck's words):
-- Rework is the necessary twin of avoiding assumptions
-That means that it optimizes for change
-Hence it practices such as pair/ensemble programming or TDD, that help with the understanding and the validation of the code.
-
-"Embracing" change has been at the core of XP long before developer tooling became a thing.
-That's because they understood something about the cost of change that others did not:
-> With a low Cost of change, rework becomes an option.
 
 
 ## The mathematics of cost of change

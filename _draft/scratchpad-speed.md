@@ -6,11 +6,10 @@ Themes to add:
 - User Stories are a flat-earthers' thing
 
 
-
+# When to design
+[DIAGRAM: BDUF: 2 segments design + implement multiple slices, XP: n segments with 2 moments design + implement]
 Cost of change is also an invisible fault line in the software community:
 Some people assume it to be high, and other to be low
-With starck contrasts in terms of how software gets built.
-It's a 2nd reason for an article: how does cost of change affects software design?
 
 
 --------------     SECTION    --------------
