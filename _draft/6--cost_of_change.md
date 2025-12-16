@@ -1,5 +1,20 @@
 # Understanding Cost of Change
 
+- Cost of change: the missing ingredient of speed
+    - Cost of change vs Size of change
+    - Bundling forces
+- Cost of change incentivizes bundling
+    - What is cost of change
+    - Fixed costs when 2 iterations > Fixed costs when 1 iteration
+- Cost of rework: the 2 design philosophies
+    - Minimize rework between slices -> plan ahead -> make assumptions
+    - Minimize assumptions -> JIT decisions + design -> accept rework
+- Impact of AI
+    - Default mode: BDUF
+    - XP was more of a believer thing, most Agile is actually pre-planned iteration, not a truely iterative process
+    - AI reduces the cost of rework, the cost of wrong assumptions stays the same
+
+
 ## Why it matters
 
 The time it takes to ship software can be broken down into:
@@ -12,7 +27,7 @@ But that fails to account for the fact that all code bases are not created equal
 - The Cost of change as a multiplication factor of the work required to make a change
 - The Cost of change includes, but is not limited to, what people designate as "complexity" or "tech debt". With the benefit of concept name that is self-explanatory.
 
-`Time to ship = Work x Cost of change / (Throughput * Effort)`
+`Time to ship = Size of change x Cost of change / (Throughput * Effort)`
 
 Talent and effort receive more than their fair share of attention (the perenial "cracked engineer" and "9-9-6" work weeks). 
 Cost of change, not so much.
@@ -107,87 +122,6 @@ Cost(Change A) + Cost(Change B) > Cost(Change A + Change B)
 Or said differently bundling 2 changes makes sense, and even more so as subadditivity increases.
 
 
-
-## The mathematics of cost of change
-
-Said differently:
-> Programmers try to avoid rework, because it's a waste of time. 
-> The bigger the rework the more they are going to try and prevent it from happening.
-> Because they assume that rework is costly. 
-> When cost of change goes down, they are glad to take the win, but their assumption does not change
->
-> On the other hand XP understands that when cost of change goes down, rework becomes more acceptable
-> And when you accept rework instead of preventing it, a new process is possible.
-
-
-Said differently, XP embraces rework where other software development philosophie try to avoid it.
-But to better understand, we need to look at the mathematics of the cost of change.
-
-Cost of change is **subadditive**: doing N changes separately costs more than doing them together.
-
-This comes from two sources:
-
-### 1. Fixed costs
-
-Every change includes fixed overhead:
-- Deployment costs (whether you change 1 line or 100 lines)
-- Review processes
-- Testing cycles
-- Release communication
-
-If deployment takes 2 hours, making 10 separate one-line changes costs 20 hours of deployment time. Making them together costs 2 hours.
-
-**Implication:** High fixed costs incentivize bundling changes into larger releases.
-
-### 2. Rework costs
-
-When changes interact with each other:
-- You might modify the same code twice
-- Tests need updating multiple times
-- Documentation requires multiple passes
-- Users experience multiple disruptions
-
-Unless you can slice work perfectly upfront (which requires big design upfront), some rework is inevitable with multiple iterations.
-
-**Implication:** High rework costs incentivize getting it right the first time—which means more upfront planning.
-
-### The equation
-
-```
-Cost(N changes separately) > Cost(N changes together)
-```
-
-The bigger the fixed costs and rework, the stronger this inequality.
-
-This is why high cost of change naturally pushes you toward waterfall approaches, regardless of what methodology you claim to follow.
-
-## The waterfall trap
-
-Also, in previous posts, I've made an (mostly) unsubstantiated claim that high cost of change pushes towards slower iterations because: 
-> cost(A) + cost(B) >> cost(A+B)
-That's a 3rd reason for an article: what is the math behind the cost of change?
-
-but also more subtle 
-!= philosophies : 
-- upfront design vs JIT design
-- avoid rework vs embrace rework by making changes inexpensive
-
-When cost of change is high:
-- You want to minimize the number of changes
-- You want to bundle changes together
-- You want to get it right the first time
-
-All of this leads to:
-- Big design upfront
-- Extensive planning and specification
-- Larger releases
-- Fewer iterations
-
-**The trap:** These behaviors make cost of change even higher, because:
-- Larger changes have more surface area for errors
-- Long gaps between releases mean more drift
-- Big bang releases are riskier to deploy
-- Upfront planning becomes self-justifying overhead
 
 ----
 

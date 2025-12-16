@@ -18,10 +18,11 @@ We order, reorder, discuss, schedule and align. We love tending to those lists o
 We need the sense of control it provides.
 It's our copium.
 
-**Planning is actually not a defect, it's been hardwired through evolution**
-When so many dangers loom that survival hangs to anticipate what could go wrong,
+**Planning is actually an evolution-hardwired trait.**
+When so many dangers loom that survival hangs on anticipating what could go wrong,
 When the world is a place where cost of change is infinitely high (death)
-Planning is highly desirable. And over-planning preferable to under-planning.
+Planning is highly desirable. 
+And over-planning preferable to under-planning.
 
 **But where change is cheap, planning is irresponsible.**
 When you can revert past decisions at no cost, 
@@ -35,6 +36,6 @@ Meaning we miss-allocate our energy where cost of change used to be high,
 Instead of where it's remaining relatively higher.
 
 **AI shifts the cost of change landscape, but not uniformely**
-Those who can intentionally not plan, 
-Who can resist the incentives to do so,
+Those who deliberatly avoid planning, 
+Who resist the incentives to anticipate,
 Are the most likely to gradient-ascent this new reality.

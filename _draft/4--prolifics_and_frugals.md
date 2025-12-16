@@ -6,12 +6,12 @@
 They attempt many things. 
 They don't refine much, they multiply instead.
 
-**Frugals distill a lot.**
+**Frugals prefer to distill.**
 They care about signal over noise. 
-They're attached to simplicity. 
-To differences that make a difference.
+They care about simplicity,
+About differences that make a difference.
 
-**AI is clearly on the prolific side.**
+**AI is the prolific genie.**
 It's verbose. 
 It produces fast. 
 It assumes a lot. 
@@ -19,11 +19,11 @@ It assumes a lot.
 **Prolifics are best positioned to leverage AI**
 It fits their nature.
 It amplifies their natural inclination.
-But unless they can harness AI to better distill 
-They are at risk of drowning in their own output
+But can they not drown in their own output (slop?)
 
-**So frugals may actually benefit the most**
+**Frugals may actually benefit the most**
 If they can add volume to their production.
+If they can automate distillation.
 If they can get started and deal with the initial mess.
 At least for a moment. 
 Long enough to figure out how to work with their new prolific partner.

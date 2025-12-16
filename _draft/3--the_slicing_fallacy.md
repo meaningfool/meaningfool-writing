@@ -1,7 +1,7 @@
 # The Slicing Fallacy
 
 **You cannot slice your way out of slow iterations**
-Despite what's commonly claimed. 
+Although that's commonly implied. 
 That's the slicing fallacy.
 
 **Because slicing only works when change is cheap.**

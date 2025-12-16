@@ -1,4 +1,6 @@
 - There is no difference between functional spec and technical spec / fog of war
+- Positional uncertainty
+- Discurssive vs analytical
 
 
 # Fog of war
