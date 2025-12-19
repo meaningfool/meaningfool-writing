@@ -12,19 +12,22 @@ tags: []
 - Sonnet 4.5 was available but not Opus 4.5
 - Antigravity and Gemini 3 had just dropped
 
-I pitted Antigravity + Gemini against CC + Sonnet 4.5 on a task: identify a commit buried deep in a dirty commit history (I've gotten better at git hygiene since).
+**I pitted Antigravity + Gemini against CC + Sonnet 4.5** on a task: identify a commit buried deep in a dirty commit history (I've gotten better at git hygiene since).
+
 For such a task I would never have trusted Sonnet 4.0 (it could not properly handle git history as far as 2 commits away).
 
-The 2 pairs gave me a different result.
-A manual investigation revealed Gemini had it right from the first answer and had a much better understanding of the full history of the project.
+**Gemini won**:
+- Gemini nailed it from the first answer and had a much better understanding of the full history of the project. 
+- Sonnet 4.5 gave me a wrong answer.
 
 So I gave it a shot.
-The experience following was really a step-change compared to what I experienced with CC + Sonnet 4.0 back in July. 
-The models have gotten to the point where I can use them adequately with my level of expertise retaining my mental sanity.
 
-Here is a deeper dive in this experience. 
-Bear in mind that I'm a PM, so my assessment here is from the POV of a non-developer.
-And you can test the app here, and see the code on Github.
+The experience following was really a **step-change** compared to what I experienced with CC + Sonnet 4.0 back in July. 
+
+Some more details below.
+
+*Bear in mind that I'm a PM, so my assessment here is from the POV of a non-developer.
+And you can test the app here, and see the code on Github.*
 
 ## The ratings
 
@@ -41,6 +44,8 @@ And you can test the app here, and see the code on Github.
 - Best measure: ratio of time spent getting it back on track from 80% to 30%
 - The result is the model can be interacted with at a much higher level: we have had discussions about code architecture, best practices. It provided a lot of learning opportunities that were not forced on me because of the inability of the model to work on its own.
 - Gemini 3 immediately felt faster than Sonnet 4.0 or 4.5...and now Gemini 3 Flash :)
+
+![[gemini+antigravity.png]]
 
 **Instruction-following (Antigravity + Gemini): C+**
 - Because Gemini is a smarter model, it does not require as much low-level instructions about how to do things. It feels less random. It can be steered at a higher level than Sonnet 4.0.
@@ -65,13 +70,11 @@ And you can test the app here, and see the code on Github.
 - The 1st problem is that Gemini is a decent partner for discussing testing strategy, but I would never hand it the keys. At least for End-to-End tests that I used systematically to test the change in behviour shipped to users.
 - The 2nd problem is that Gemini + Antigravity is pretty bad at writing robust E2E tests (I believe it would be the same for other models on the market): it regularly produces flaky tests that it struggles to debug.
 - The 3rd problem is that it regularly misreports on failing tests.
-E2E: struggling with playwright and how to write robust E2E tests. Playwright was not built for that. Hope someth
-- It's definitely the most deficient and time-consuming area at the moment.
+- Testing (E2E testing in particular) is definitely the most deficient and time-consuming area at the moment.
 
 **Reasoning (Gemini): C-**
 - Working with graph that have oriented edges revealed challenging for Gemini. 
 - When working on graph validation rules, graph layout or graph traversal, I had to be very prescriptive about the algorithm details.
-
 
 ## Conclusion
 
@@ -88,4 +91,4 @@ With Antigravity, the additional UI, compared to a simple CLI, adds value.
 **The harness**
 Antigravity has strong propositions, that go in the right direction.
 I'm really curious to see where they take it.
-But harness market is accelerating: it's not just Cursor vs Claude Code vs Amp anymore. There are promising proposals coming from OpenCode (and from Oh My OpenCode), CodeBuff
+But harness market is accelerating: it's not just Cursor vs Claude Code vs Amp anymore. There are promising proposals coming from OpenCode (and from [Oh My OpenCode](https://github.com/code-yeongyu/oh-my-opencode)) or [CodeBuff](https://www.codebuff.com/). They made somewhat of an entry, hopefully they are going to keep up with the ecosystem.
