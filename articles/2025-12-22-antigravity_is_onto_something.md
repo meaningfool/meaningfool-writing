@@ -3,7 +3,6 @@ title: "3 weeks with Antigravity and Gemini"
 date: 2025-12-22
 tags: []
 ---
-import demoVideo from '../images/datalineage-demo-web.mp4';
 
 # 3 weeks with Antigravity and Gemini
 
@@ -30,7 +29,7 @@ Some more details below.
 *Bear in mind that I'm a PM, so my assessment here is from the POV of a non-developer.
 And you can test the app here, and see the code on Github.*
 
-<video src={demoVideo} controls width="100%"></video>
+<video src="/images/datalineage-demo-web.mp4" controls width="100%"></video>
 
 
 
