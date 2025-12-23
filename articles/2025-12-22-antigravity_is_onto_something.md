@@ -29,7 +29,7 @@ Some more details below.
 *Bear in mind that I'm a PM, so my assessment here is from the POV of a non-developer.
 And you can test the app here, and see the code on Github.*
 
-<video src="../images/datalineage-demo-web.mp4" controls width="100%"></video>
+<video src="/images/datalineage-demo-web.mp4" controls width="100%"></video>
 
 
 
@@ -50,7 +50,7 @@ And you can test the app here, and see the code on Github.*
 - The result is the model can be interacted with at a much higher level: we have had discussions about code architecture, best practices. It provided a lot of learning opportunities that were not forced on me because of the inability of the model to work on its own.
 - Gemini 3 immediately felt faster than Sonnet 4.0 or 4.5...and now Gemini 3 Flash :)
 
-![[gemini+antigravity.png]]
+![Gemini + Antigravity](../images/gemini+antigravity.png)
 
 **Instruction-following (Antigravity + Gemini): C+**
 - Because Gemini is a smarter model, it does not require as much low-level instructions about how to do things. It feels less random. It can be steered at a higher level than Sonnet 4.0.
