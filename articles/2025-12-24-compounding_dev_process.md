@@ -14,7 +14,7 @@ I wanted to
 
 This diagram captures the flow as it stands today:
 
-![Development Process Diagram](../images/dev-process.png)
+![Development Process Diagram](/images/dev-process.png)
 
 The process is structured into three main phases, bookended by a "Getting Started" and "Finishing" step.
 
@@ -46,7 +46,7 @@ Each feature starts with:
 - Practically, the AI has a very hard time reasoning separately about the implementation and the tests. 
 - But clear tests remove ambiguity and allow the AI to course correct during the implementation phase.
 
-![Slice content excerpt](../images/spec-slice-content.png)
+![Slice content excerpt](/images/spec-slice-content.png)
 
 ## Phase 2: Implementation
 
@@ -92,6 +92,6 @@ It’s a rhythm of expanding and contracting scope, but always moving forward wi
 
 The result is a process that compounds learnings and process improvements over time.
 
-That's what Every coined as Compounding Engineering. https://every.to/c/compounding-engineering
+That's what Every coined as [Compounding Engineering](https://every.to/c/compounding-engineering). 
 
-And Lance Martin created his own process using "diaries" https://rlancemartin.github.io/2025/12/01/claude_diary/
+And Lance Martin created his own [process using "diaries"](https://rlancemartin.github.io/2025/12/01/claude_diary/).
