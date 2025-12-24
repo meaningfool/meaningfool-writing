@@ -23,10 +23,26 @@ Use these bash command patterns to generate the variables:
 1. **Generate variables**: Create [RAW_FILENAME], [CLEAN_FILENAME], [DATE_PREFIX] and [TARGET_FILENAME]
 2. **Check target availability**: Verify `articles/[TARGET_FILENAME].md` doesn't already exist
 3. **Extract title**: Get [EXTRACTED_TITLE] from first H1 header in draft content
-4. **Move file**: 
+4. **Validate and fix image paths**:
+   - Scan for markdown image references: `![...](path)`
+   - Images referencing local files must use relative paths from the `articles/` folder
+   - Fix absolute paths: `/images/...` → `../images/...`
+   - Fix incorrect relative paths: `images/...` → `../images/...`
+   - Verify referenced images exist in `images/` folder
+   - Report any missing images as warnings
+5. **Move file**:
    - If the file is tracked, use `git mv` to rename draft to `articles/[TARGET_FILENAME].md`
    - If the file is untracked use bash move tool
-5. **Add frontmatter**: Insert frontmatter template with [EXTRACTED_TITLE] and [DATE_PREFIX]
+6. **Add frontmatter**: Insert frontmatter template with [EXTRACTED_TITLE] and [DATE_PREFIX]
+
+### Image Path Rules:
+
+Articles in `articles/` folder must reference images using `../images/filename.ext` because:
+- The `images/` folder is a sibling of `articles/`
+- Absolute paths (`/images/...`) resolve to website root, not the content submodule
+
+Valid: `![alt](../images/my-image.png)`
+Invalid: `![alt](/images/my-image.png)` or `![alt](images/my-image.png)`
 
 ### Frontmatter Template:
 ```yaml
@@ -41,5 +57,6 @@ tags: []
 - If no file reference provided: "Error: Please provide a file reference (e.g., /publish-article @_draft/my-file.md)"
 - If target already exists: "Error: Article with same name already exists for today's date"
 - If no H1 header found: "Error: No H1 header found in draft for title extraction"
+- If image file not found: "Warning: Image not found: [path]. Please verify the image exists."
 
-Complete the conversion and report the new article filename.
+Complete the conversion and report the new article filename, including any image path fixes applied.
