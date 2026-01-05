@@ -1,125 +1,83 @@
-# Understanding Cost of Change
+# How long for that change?
 
-- Cost of change: the missing ingredient of speed
-    - Cost of change vs Size of change
-    - Bundling forces
-- Cost of change incentivizes bundling
-    - What is cost of change
-    - Fixed costs when 2 iterations > Fixed costs when 1 iteration
-- Cost of rework: the 2 design philosophies
-    - Minimize rework between slices -> plan ahead -> make assumptions
-    - Minimize assumptions -> JIT decisions + design -> accept rework
-- Impact of AI
-    - Default mode: BDUF
-    - XP was more of a believer thing, most Agile is actually pre-planned iteration, not a truely iterative process
-    - AI reduces the cost of rework, the cost of wrong assumptions stays the same
+Can we break down the time it takes to make a change?
+It depends on the size of the change: obviously.
+The talent, seniority and dedication of the team matters: sure.
+But there is something else.
 
+That something is what people sometimes call "complexity" or "tech debt".
+But it's usually something that remains vague and can't be properly broken down further.
+It's a mix of ill-chosen abstractions, spaghetti code, lack of proper devops,... 
+So many things that make small changes disproportionately costly.
 
-## Why it matters
-
-The time it takes to ship software can be broken down into:
-- The throughput of the team measured as units of work shipped per unit of time
-- The effort / work intensity measured as the fraction of the daily 24h worked (25% means 6 hours/day)
-
-`Time to ship = Work / (Throughput * Effort)`
-
-But that fails to account for the fact that all code bases are not created equal:
-- The Cost of change as a multiplication factor of the work required to make a change
-- The Cost of change includes, but is not limited to, what people designate as "complexity" or "tech debt". With the benefit of concept name that is self-explanatory.
-
-`Time to ship = Size of change x Cost of change / (Throughput * Effort)`
-
-Talent and effort receive more than their fair share of attention (the perenial "cracked engineer" and "9-9-6" work weeks). 
-Cost of change, not so much.
-
-## What is the Cost of change
-
-This concept, was, to my knowledge, introduced by XP practitioners. 
-And I draw heavily from Kent Beck, founder of XP, and one of the Agile manifesto authors.
-
-So, quoting Kent Beck, cost of change is the time it takes to:
+Kent Beck named this the Cost of change (ADD LINK).
+It's the time it takes to:
 - Understand what needs to be changed
 - Make the change
 - Validate the change
 - Deploy the change
 
-[ADD IMAGE]
+## The bundling effect
 
-This, however, is only the *software* cost of change.
+Cost of change has a fixed component,
+A component that does not depend on the size of the change.
+It includes things such as:
+- Spinning up a local development environment
+- Running the full test suite
+- The duration of the CI/CD pipeline
+- The time it takes to understand the code (which is high whatever the change under high coupling)
 
-It can be expanded to a *product* cost of change by adding all sources of delays when shipping a change in the product: 
-- Distribution the change to your users (think on-premise or embedded software and the associated delays: security audits, app store reviews,...)
-- Enablement of your users (think B2B: documentation, training, possibly through partners that need to be trained first)
-
-## How to lower the *software* Cost of change
-
-I am not going to break any news here. 
-
-The high road (or at least the most travelled one) to lower the software cost of change is automation:
-- CI / CD
-- Automated code analysis tools (linters, checkers of all breeds)
-- Automated testing
-- Observability tools 
-- And AI code generation is another step in that direction.
-
-But if you are looking at decreasing the total cost you pay to change, there is another way:
-> Reduce the total amount of change
-
-The Cost of change conditions how you look at change which in turn conditions your software development philosophy.
-
-[ADD DIAGRAM: go towards bottom left on a linear function ax and a'x with a'< a]
-
-## 2 software design philosophies: avoiding or embracing change
-
-Let's consider the shape S below (the big square), and how it's being completed through successive units of work (the small blue square-ish shapes) which involve some rework (the orange overlaps).
-
-Now let's consider 2 situations:
-1. In situation A: there is little to no rework involved. 
-2. In situation B: there is a lot more rework as each iteration overlaps significantly with previous ones.
+cost(A+B) < cost(A) + cost(B) *(i.e. cost is subadditive)*
+Because of the fixed costs, there is an incentive in bundling changes.
+The higher the fixed costs the stronger the bundling effect.
 
 [ADD DIAGRAM]
 
-To anyone looking at those:
-> Sitation A is more rational than Situation B as it involves much less wasted efforts in rework
+## The rework effect
 
-What's missing from the analysis though is that: 
-> Situation A is achievable under the assumption that we know the shape S beforehand, allowing for clean cuts.
+Consider a feature that amounts to a total work W if implemented in one go.
+If implemented in n work units instead, some level of rework is to be expected with each unit.
+So that 'Sum(W1,..., Wn) > W'
 
-And that's the core of the design philosophies tradeoff: you can minimize assumption or change but not both.
+Designing upfront can mitigate the rework effect:
+- Plan ahead in order to make impactful decisions early.
+- Design each work unit to be forward-compatible with future work units. 
 
-At both ends of the spectrum, 2 design philosophies:
-- "Big design upfront" that minimizes rework by de-risking and planning ahead.
-- "eXtreme Programming" that optimizes for change, considering its cost is outweighted by the benefits of smaller assumptions.
+[ADD DIAGRAM]
 
-An example of XP optimizing for change is TDD: the constraint to build code that satisfies only the conditions encoded in the tests and nothing more is a forcing function to make as few assumptions as possible. But the tests and the code are very likely to evolve as you move forward.
+## The 2 design philosophies
+
+Big Design Up Front:
+1. Bets that additional design work is more than offset by the reduced rework.
+2. Bets that current assumptions (that design decisions are based upon) will hold true.
+
+On the other hand, eXtreme Programming (XP) starts from the opposite trade-off:
+- XP insists on minimizing assumptions, even if it means embracing rework.
+- Where Big Design Up Front minimizes rework at the cost higher assumptions.
+
+Rework, however, is only as impactful as the cost of change:
+- High cost of change means rework is expensive, pushing toward Big Design Up Front
+- Lower cost of change means rework is cheap, pushing toward XP
 
 [ADD DIAGRAM: change in ordinate, assumption in absis, 3 lines with various beginnings from the ordinate -> higher intercept means higher cost of change]
 
-In that tension between BDUF and XP, a high cost of change creates a pull towards "Big design upfront".
+## Conclusion
+The cost of change shapes how we make software: 
+- High cost of change implies a bundling bias
+- The "slicing fallacy": you can't slice your way out of slow iterations with high cost of change
 
-It always make sense to lower the cost of change when you can, but:
-- While for Big design upfront, a lowered cost of change is an end in itself (resulting in a lowered total cost of change)
-- For XP it is a means to increase the total amount of change (at the same total cost of change)
+Even when not using this specific term, lowering the cost of change has always been sought after.
+It pushed forward innovation in the dev tooling space. 
+It's implied in the devops movement.
+And now AI codegen is another, very significant, step in that direction.
 
-For BDUF, a lowered cost of change is desirable, for XP it's a necessity. 
+The collapse of the *software* cost of change vindicates the XP philosophy: lower cost of change makes rework irrelevant.
 
-[ADD DIAGRAM: ax and a'x, BDUF down and to the left and XP down and to the right]
+Lower cost of change does not discount value of design expertise though.
+BUT:
+- It does discount the value of anticipation.
+- And it rewards applying design expertise just in time and only to confirmed problems
 
-
-## Bundling forces
-
-The cost of change impacts a second dimension: the iteration frequency.
-Cost of change, contrary to my earlier diagrams, has a non-0 intercept, i.e. it has fixed component
-Functions such as f(x) = ax + b with a,b > 0 have a nice-sounding characteristics : they are sub-additive.
-
-That means that f(a)+f(b) > f(a+b)
-
-Saying that the cost of change is subadditive means that
-Cost(Change A) + Cost(Change B) > Cost(Change A + Change B)
-
-[ADD DIAGRAM showing subadditivity for ax+b]
-
-Or said differently bundling 2 changes makes sense, and even more so as subadditivity increases.
 
 
 
