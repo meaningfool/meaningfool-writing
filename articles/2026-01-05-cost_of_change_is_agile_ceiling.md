@@ -1,3 +1,8 @@
+---
+title: "Cost of Change is Agile's ceiling"
+date: 2026-01-05
+tags: []
+---
 # Cost of Change is Agile's ceiling
 
 **Agile depends on slicing the work.**
@@ -37,9 +42,3 @@ Or maybe precisely because some people's role exist only thanks to that overhead
 Do we finally get to be more Agile?
 How does product management shift?
 
-
-
-
------------- HOOKS ------------
-
-[https://imgflip.com/i/9ol6ck](https://imgflip.com/i/9ol6ck)
