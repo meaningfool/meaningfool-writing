@@ -6,7 +6,7 @@ Smaller chunks mean the ability to reduce WIP and increase flow.
 That's what I kept hearing and reading about.
 
 
-**Until I discovered it's only half of the story.** 
+**Until I discovered it's only half of the story.**
 Cutting things into ever tinier pieces
 Won't move the needle if cost of change is high.
 

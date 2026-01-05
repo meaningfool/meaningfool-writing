@@ -46,35 +46,65 @@ Your article content goes here...
 **Optional Fields:**
 - `tags`: Array - List of tags in brackets with quotes
 
-## Website Rebuild Workflow
+## Publishing Skill
 
-To publish content to the live website:
+The **publishing skill** (`.claude/skills/publishing/`) handles article publishing and website deployment.
 
-1. **Commit your changes** (as you normally would)
+### Automatic Activation
 
-2. **Run the /rebuild-website command**
+Claude will recognize and offer the publishing skill when you:
+- Mention "publish", "deploy", or "rebuild website"
+- Ask to move drafts to articles
+- Request website updates
 
-### What Happens When You Rebuild the Website
+### Core Commands
 
-The `rebuild-website` command executes `.claude/scripts/rebuild-website.sh` which:
-1. **Validate frontmatter** - Uses `.claude/scripts/frontmatter-validation.sh` to check all articles in visible folders (articles/, daily-logs/, etc.)
-2. **Show validation results** - Lists any files with missing or invalid frontmatter with clear error messages
-3. **Run content update** - Uses `.claude/scripts/run-content-update.sh` to trigger and wait for content workflow
-4. **Run deployment** - Uses `.claude/scripts/run-deployment.sh` to trigger and wait for deployment workflow
-5. **Stop on any failure** - Process halts immediately if validation or any workflow fails
+**Publish an article:**
+```bash
+/publish-article @_draft/my-article.md
+```
 
-If validation succeeds, the deployment process:
-1. **Content Update Workflow** runs in main site repository
-2. **Submodule Update**: Main site pulls latest content from this repo
-3. **Automatic Deployment**: Site rebuilds and deploys to GitHub Pages
-4. **Live in ~3-5 minutes**: Content appears at https://meaningfool.github.io/
+**Rebuild and deploy the website:**
+```bash
+/rebuild-website
+```
+
+**Natural language also works:**
+- "Publish my article about X" (publishes + deploys)
+- "Deploy the website" (deploy only)
+
+### What Happens When Publishing
+
+**Publish Article** (automatically deploys):
+1. Extracts title from first H1 header
+2. Generates dated filename (YYYY-MM-DD-article-name.md)
+3. Validates and fixes image paths
+4. Moves file to `articles/` folder
+5. Adds frontmatter (title, date, tags)
+6. Commits and pushes changes
+7. Triggers deployment workflows
+8. Content live at https://meaningfool.github.io/ in ~3-5 minutes
+
+**Rebuild Website** (deploy only):
+1. Validates frontmatter for all articles
+2. Triggers content update workflow (GitHub Actions)
+3. Triggers deployment workflow
+4. Waits for completion and reports status
+5. Content live at https://meaningfool.github.io/ in ~3-5 minutes
+
+### Detailed Documentation
+
+For detailed workflows and troubleshooting, see:
+- `.claude/skills/publishing/SKILL.md` - Core skill definition
+- `.claude/skills/publishing/workflows.md` - Step-by-step processes
+- `.claude/skills/publishing/troubleshooting.md` - Common issues and fixes
 
 ### Important Notes
 
 - **No automatic deployment**: Pushing to this repo does NOT trigger website updates
-- **Manual control**: You decide when content goes live
-- **Selective publishing**: Future enhancement will support draft vs published states
-- **One command**: The `gh workflow run` command handles everything
+- **Manual control**: You decide when content goes live via explicit commands or requests
+- **Slash commands proceed automatically**: No confirmation required
+- **Natural language requests ask first**: Claude confirms before proceeding
 
 
 ## Troubleshooting
@@ -86,7 +116,7 @@ If validation succeeds, the deployment process:
 1. **Run validation script**:
    ```bash
    # Use the built-in validation script to check all content
-   .claude/scripts/frontmatter-validation.sh
+   .claude/skills/publishing/scripts/frontmatter-validation.sh
    ```
 
    This will show exactly which files are missing `title` or `date` fields.
@@ -177,11 +207,13 @@ The `.ai-orchestration/` directory contains files for tracking tooling developme
 - **Submodule Pointer**: Main site tracks specific commit of this repo
 - **GitHub Actions**: Automated workflows handle building and deployment
 - **GitHub Pages**: Final deployment target
-- **Website Rebuild Pipeline**: Modular scripts in `.claude/scripts/` handle validation, content updates, and deployment
-  - `rebuild-website.sh`: Main orchestration script called by `/rebuild-website` command
-  - `frontmatter-validation.sh`: Validates all content has proper frontmatter
-  - `run-content-update.sh`: Handles content update workflow
-  - `run-deployment.sh`: Handles deployment workflow
+- **Publishing Skill**: Self-contained skill in `.claude/skills/publishing/` with bundled scripts
+  - `SKILL.md`: Main skill definition for publishing and deployment
+  - `scripts/rebuild-website.sh`: Main orchestration script
+  - `scripts/frontmatter-validation.sh`: Validates all content has proper frontmatter
+  - `scripts/run-content-update.sh`: Handles content update workflow
+  - `scripts/run-deployment.sh`: Handles deployment workflow
+- **Daily Command**: Separate skill in `.claude/scripts/`
   - `daily.sh`: Generates daily development logs from GitHub commits
 
 ### Future Enhancements
@@ -194,27 +226,28 @@ The `.ai-orchestration/` directory contains files for tracking tooling developme
 ## Key Commands Summary
 
 ```bash
-# In this repository - commit your work
-git add . && git commit -m "Your message" && git push
+# Publishing (via skill)
+/publish-article @_draft/my-article.md    # Publish a draft article
+/rebuild-website                           # Deploy website updates
 
-# Validate frontmatter manually (optional)
-.claude/scripts/frontmatter-validation.sh
+# Or use natural language:
+# "publish my article"
+# "deploy the website"
+# "publish and deploy this article"
 
-# Rebuild website (includes validation + deployment)
-/rebuild-website
-
-# Generate daily development log
+# Daily development logs
 /daily                    # Today's commits
 /daily yesterday         # Yesterday's commits
 /daily -3               # 3 days ago
 /daily 2025-09-20      # Specific date
 
-# Run individual workflow components (if needed)
-.claude/scripts/run-content-update.sh
-.claude/scripts/run-deployment.sh
+# Manual validation and checks
+.claude/skills/publishing/scripts/frontmatter-validation.sh   # Validate frontmatter
+gh run list --repo meaningfool/meaningfool.github.io         # Check deploy status
 
-# Check publishing status
-gh run list --repo meaningfool/meaningfool.github.io --limit 3
+# Individual workflow scripts (usually not needed - use skill instead)
+.claude/skills/publishing/scripts/run-content-update.sh
+.claude/skills/publishing/scripts/run-deployment.sh
 ```
 
 Remember: Write → Commit → Push → Publish (when ready)

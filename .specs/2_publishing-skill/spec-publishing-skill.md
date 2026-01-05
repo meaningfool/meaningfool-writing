@@ -7,7 +7,7 @@ Create a publishing skill that consolidates article publishing and website deplo
 
 ### Core Actions
 
-#### 1. Publish Article
+#### 1. Publish Article (with Deploy)
 - **Input**: File reference to a draft article (e.g., `@_draft/my-article.md`)
 - **Process**:
   1. Extract filename and generate target filename with date prefix
@@ -16,9 +16,12 @@ Create a publishing skill that consolidates article publishing and website deplo
   4. Validate and fix image paths (must use `../images/` relative paths)
   5. Move file to `articles/` folder
   6. Add frontmatter (title, date, tags)
-- **Output**: Confirmation with new filename and any fixes applied
+  7. Commit and push changes
+  8. Execute Deploy Website workflow (see below)
+- **Output**: Confirmation with new filename, fixes applied, and deployment status
+- **Note**: By default, publishing an article triggers deployment. This is the most common workflow.
 
-#### 2. Deploy Website (Rebuild)
+#### 2. Deploy Website (Rebuild Only)
 - **Input**: None required
 - **Process**:
   1. Validate frontmatter for all articles in visible folders
@@ -28,24 +31,16 @@ Create a publishing skill that consolidates article publishing and website deplo
   5. Wait for workflow completion
   6. Verify deployment succeeded
 - **Output**: Status report with success/failure and next steps
-
-#### 3. Publish and Deploy (Chained)
-- **Input**: File reference to a draft article
-- **Process**:
-  1. Execute Publish Article workflow
-  2. Commit and push changes
-  3. Execute Deploy Website workflow
-- **Output**: Combined status report
+- **Use when**: You've made changes (edited articles, updated daily logs) and want to deploy without publishing a new article
 
 ### Activation Triggers
 
 | Trigger Type | Examples | Confirmation Required |
 |--------------|----------|----------------------|
-| Slash command `/publish-article` | `/publish-article @_draft/article.md` | No |
-| Slash command `/rebuild-website` | `/rebuild-website` | No |
-| Natural language publish | "publish my article", "move draft to articles" | Yes |
-| Natural language deploy | "deploy the website", "rebuild the site" | Yes |
-| Combined request | "publish and deploy my article" | Yes |
+| Slash command `/publish-article` | `/publish-article @_draft/article.md` | No (publishes + deploys) |
+| Slash command `/rebuild-website` | `/rebuild-website` | No (deploy only) |
+| Natural language publish | "publish my article", "move draft to articles" | Yes (publishes + deploys) |
+| Natural language deploy | "deploy the website", "rebuild the site" | Yes (deploy only) |
 
 ### Verification Loop
 
@@ -75,16 +70,23 @@ After deployment, the skill should:
 .claude/skills/publishing/
 ├── SKILL.md                 # Main skill definition with core logic
 ├── workflows.md             # Detailed workflow documentation
-└── troubleshooting.md       # Common issues and solutions
+├── troubleshooting.md       # Common issues and solutions
+└── scripts/                 # Publishing-related scripts
+    ├── frontmatter-validation.sh
+    ├── rebuild-website.sh
+    ├── run-content-update.sh
+    └── run-deployment.sh
 ```
 
-### Existing Scripts (Reused)
+### Scripts
 
-Scripts remain in `.claude/scripts/` and are referenced by the skill:
-- `frontmatter-validation.sh` - Validates frontmatter in all articles
-- `rebuild-website.sh` - Orchestrates full deployment pipeline
-- `run-content-update.sh` - Triggers content update workflow
-- `run-deployment.sh` - Triggers deployment workflow
+Publishing scripts are bundled within the skill for self-containment:
+- `scripts/frontmatter-validation.sh` - Validates frontmatter in all articles
+- `scripts/rebuild-website.sh` - Orchestrates full deployment pipeline
+- `scripts/run-content-update.sh` - Triggers content update workflow
+- `scripts/run-deployment.sh` - Triggers deployment workflow
+
+**Note**: Scripts previously in `.claude/scripts/` are moved into the skill. The `daily.sh` script remains in `.claude/scripts/` as it's part of a separate skill.
 
 ### Slash Commands (Simplified)
 
@@ -127,22 +129,19 @@ allowed-tools: Bash, Read, Edit, Write, Glob, Grep
 
 ## Data Flow
 
-### Publish Article Flow
+### Publish Article Flow (Default - with Deploy)
 ```
-User request → Skill activation → File validation → Image path fixes → 
-File move → Frontmatter insertion → Confirmation
+User request → Skill activation → File validation → Image path fixes →
+File move → Frontmatter insertion → git add/commit/push →
+Frontmatter validation → Content update workflow → Wait →
+Deployment workflow → Wait → Verification → Status report
 ```
 
-### Deploy Website Flow
+### Deploy Website Only Flow
 ```
-User request → Skill activation → Frontmatter validation → 
-Content update workflow → Wait → Deployment workflow → Wait → 
+User request → Skill activation → Frontmatter validation →
+Content update workflow → Wait → Deployment workflow → Wait →
 Verification → Status report
-```
-
-### Chained Flow
-```
-Publish Article Flow → git add/commit/push → Deploy Website Flow
 ```
 
 ## Key Differences from Current Implementation
@@ -150,20 +149,23 @@ Publish Article Flow → git add/commit/push → Deploy Website Flow
 ### Added
 - Automatic skill activation based on natural language
 - Verification loop after deployment
-- Chained publish-and-deploy workflow
+- Default chaining: publish article automatically deploys
 - Extensible troubleshooting documentation
 - Confirmation prompts for auto-activated requests
+- Self-contained skill with bundled scripts
 
 ### Changed
 - Slash commands become thin wrappers
 - Logic moves from command files to SKILL.md
 - Structured documentation in separate files
+- Scripts moved from `.claude/scripts/` into skill directory
+- `/publish-article` now publishes AND deploys by default
 
 ### Preserved
-- All existing scripts remain functional
 - Same underlying workflow mechanics
 - Same frontmatter validation logic
 - Same image path handling
+- Same deployment process
 
 ## Implementation Notes
 

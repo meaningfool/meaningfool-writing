@@ -1,9 +1,7 @@
 ---
-description: Rebuild and deploy the meaningfool.github.io website with frontmatter validation
-argument-hint: (no arguments needed)
-allowed-tools: Bash(.claude/scripts/rebuild-website.sh)
+description: Rebuild and deploy the meaningfool.github.io website
 ---
 
-Validates frontmatter for all articles, then rebuilds and deploys the website by running both workflows sequentially.
+Use the publishing skill to rebuild and deploy the website.
 
-!`.claude/scripts/rebuild-website.sh`
+Proceed without asking for confirmation since this is an explicit command invocation.
