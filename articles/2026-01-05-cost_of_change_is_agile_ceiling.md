@@ -2,7 +2,7 @@
 title: "Cost of Change is Agile's ceiling"
 date: 2026-01-05
 hooks:
-  - [https://imgflip.com/i/9ol6ck](https://imgflip.com/i/9ol6ck)
+  - "https://imgflip.com/i/9ol6ck"
 ---
 # Cost of Change is Agile's ceiling
 
