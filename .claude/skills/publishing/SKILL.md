@@ -1,7 +1,7 @@
 ---
 name: publishing
 description: Publish articles and deploy the meaningfool.github.io website. Use when the user mentions "publish", "deploy", "rebuild website", or wants to move drafts from _draft/ to articles/.
-allowed-tools: Bash, Read, Edit, Write, Glob, Grep
+allowed-tools: Bash(.claude/skills/publishing/scripts/*), Bash(git:*), Bash(date:*), Bash(echo:*), Bash(sed:*), Bash(grep:*), Bash(test:*), Bash(gh:*), Read, Edit, Write, Glob, Grep
 ---
 
 # Publishing Skill
@@ -51,12 +51,29 @@ Moves a draft article from `_draft/` to `articles/` with proper formatting, then
    ```
 10. Execute Deploy Website workflow (see below)
 
-**Frontmatter template:**
+**Frontmatter handling:**
+- Preserves all existing frontmatter fields
+- Updates/adds required fields:
+  - `title`: Extracted from H1 header
+  - `date`: Today's date (YYYY-MM-DD)
+- Optional fields preserved if present (e.g., `hooks`, `tags`, etc.)
+- Does NOT add optional fields if they don't exist
+
+Example:
 ```yaml
+# Before (in draft):
 ---
-title: "[EXTRACTED_TITLE]"
-date: YYYY-MM-DD
-tags: []
+title: "Old Title"
+hooks:
+  - https://example.com
+---
+
+# After (in articles):
+---
+title: "Cost of Change is Agile's ceiling"  # Updated
+date: 2026-01-05                            # Added
+hooks:                                       # Preserved
+  - https://example.com
 ---
 ```
 

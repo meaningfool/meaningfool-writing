@@ -51,13 +51,28 @@ Generate these bash variables for the workflow:
      mv _draft/[SOURCE].md articles/[TARGET_FILENAME].md
      ```
 
-6. **Add frontmatter**
-   - Insert frontmatter at the top of the file:
+6. **Update frontmatter**
+   - Read existing frontmatter (if present)
+   - Preserve all existing fields
+   - Update/add required fields:
+     - `title`: [EXTRACTED_TITLE] from H1 header
+     - `date`: [DATE_PREFIX] (today's date)
+   - Do NOT add optional fields like `tags` unless already present
+   - Example:
      ```yaml
+     # Existing frontmatter in draft:
      ---
-     title: "[EXTRACTED_TITLE]"
-     date: [DATE_PREFIX]
-     tags: []
+     title: "Old Title"
+     hooks:
+       - https://example.com
+     ---
+
+     # Updated frontmatter in articles:
+     ---
+     title: "[EXTRACTED_TITLE]"  # Updated
+     date: [DATE_PREFIX]          # Added
+     hooks:                        # Preserved
+       - https://example.com
      ---
      ```
 
@@ -97,6 +112,10 @@ All articles in `articles/` folder **must** have frontmatter or the build will f
 **Required fields:**
 - `title` - String, must be quoted
 - `date` - YYYY-MM-DD format, no quotes
+
+**Optional fields:**
+- Any custom fields (e.g., `hooks`, `tags`, etc.) are preserved during publishing
+- The skill does NOT add optional fields automatically
 
 ## Deploy Website Workflow (Rebuild Only)
 

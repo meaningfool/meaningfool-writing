@@ -15,11 +15,12 @@ Create a publishing skill that consolidates article publishing and website deplo
   3. Extract title from first H1 header
   4. Validate and fix image paths (must use `../images/` relative paths)
   5. Move file to `articles/` folder
-  6. Add frontmatter (title, date, tags)
+  6. Update frontmatter (preserve existing fields, update title and date)
   7. Commit and push changes
   8. Execute Deploy Website workflow (see below)
 - **Output**: Confirmation with new filename, fixes applied, and deployment status
 - **Note**: By default, publishing an article triggers deployment. This is the most common workflow.
+- **Frontmatter handling**: Preserves all existing fields (e.g., `hooks`), only updates `title` and `date`. Does NOT add optional fields like `tags` unless already present.
 
 #### 2. Deploy Website (Rebuild Only)
 - **Input**: None required
