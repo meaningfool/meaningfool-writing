@@ -86,13 +86,24 @@ hooks:                                       # Preserved
 Validates content and triggers deployment workflows. Use when you've made changes (edited articles, updated daily logs) and want to deploy without publishing a new article.
 
 **Steps:**
-1. Run frontmatter validation: `scripts/frontmatter-validation.sh`
-2. If validation fails: report issues and stop
-3. Run content update: `scripts/run-content-update.sh`
-4. Wait for workflow completion
-5. Run deployment: `scripts/run-deployment.sh`
-6. Wait for workflow completion
-7. Report final status
+1. Check for uncommitted changes: `scripts/commit-article-changes.sh`
+   - Detects any uncommitted changes in articles/ folder (deletions, modifications, new files)
+   - If changes exist: automatically commits and pushes them
+   - Ensures website reflects latest local state
+2. Run frontmatter validation: `scripts/frontmatter-validation.sh`
+3. If validation fails: report issues and stop
+4. Run content update: `scripts/run-content-update.sh`
+5. Wait for workflow completion
+6. Run deployment: `scripts/run-deployment.sh`
+7. Wait for workflow completion
+8. Report final status
+
+**Article Changes Detection:**
+- Automatically detects any uncommitted changes in articles/ folder
+- Includes: deletions, modifications, new files
+- Commits with descriptive message
+- Pushes to remote before triggering workflows
+- Ensures website always reflects latest local state
 
 **Verification:**
 
@@ -118,6 +129,7 @@ gh run list --repo meaningfool/meaningfool.github.io --limit 3
 | Target file exists | Report conflict, ask for resolution |
 | No H1 header found | Report error, suggest adding a title |
 | Image file not found | Warn but continue |
+| Uncommitted article changes | Auto-commit and push before rebuild |
 | Frontmatter validation fails | List issues with fix template |
 | Workflow fails | Report status, see [troubleshooting.md](troubleshooting.md) |
 
