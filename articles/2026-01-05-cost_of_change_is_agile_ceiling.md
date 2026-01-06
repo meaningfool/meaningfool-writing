@@ -6,10 +6,10 @@ hooks:
 ---
 # Cost of Change is Agile's ceiling
 
-**Agile depends on slicing the work.**
+**Agile is all about slicing the work.**
 Smaller chunks mean delivering value faster.
 Smaller chunks mean the ability to reduce WIP and increase flow.
-That's what I kept hearing and reading about.
+That's what I kept hearing.
 
 
 **Until I discovered it's only half of the story.**
