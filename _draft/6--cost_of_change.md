@@ -84,8 +84,3 @@ BUT:
 ----
 
 HOOK
-2 important things : 
-1. talk to users / customers
-2. Keep cost of change low (that's how you keep iterating fast)
-
-gaussian talk to users + ship fast -> frameworks -> talk to users + keep cost of change low (that's XP)
