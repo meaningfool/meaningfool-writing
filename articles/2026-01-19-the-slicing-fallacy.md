@@ -1,4 +1,6 @@
 ---
+title: "The Slicing Fallacy"
+date: 2026-01-19
 hooks:
   - https://imgflip.com/i/9xw3sb
   - https://tenor.com/fr/view/teppanyaki-chop-chopping-knife-skills-fast-hands-gif-15378421?utm_source=chatgpt.com
