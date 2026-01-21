@@ -1,42 +1,6 @@
 # Harness vs One‑Shot LLM: Inner/Outer Loops, Agentic Behavior, and Training Traces
 
-## The questions this write‑up answers
-
 This write‑up explains the practical difference between a **reasoning (“thinking”) model** and an **agentic harness**, and why tool‑using agents naturally produce **multi‑step, multi‑call traces** even when the user never asks for a plan.
-
-It answers these questions:
-
-* What’s the difference between a one‑shot LLM and an agentic system (LLM + harness)?
-* How do “inner loop” (model reasoning) and “outer loop” (harness orchestration) relate?
-* If a model can think, why do we need a harness?
-* Why does an agent often decompose a task and call tools even if the user only asked “solve”?
-* Does the model have implicit awareness it will be called again?
-* Is decomposition demanded by the harness, or an emergent behavior from the model?
-* Are tool‑using models trained on “full traces” (assistant ↔ tools ↔ assistant), and does next‑token prediction explain the behavior?
-
-## The tree of questions
-
-Below is a scan‑friendly tree: broad questions at the top, narrower ones underneath.
-
-* **A. What is an agent (LLM + harness) vs a one‑shot LLM?**
-
-  * A1. What can a one‑shot LLM do by itself?
-  * A2. What does the harness add that the model cannot do alone?
-  * A3. How does the outer loop actually work (call → tool → call …)?
-* **B. Inner loop vs outer loop: where does planning and decomposition live?**
-
-  * B1. If you don’t ask a thinking model to plan, won’t it plan anyway?
-  * B2. Why does an agent often avoid answering immediately and instead request tool calls?
-  * B3. Is decomposition an explicit harness policy, a natural model behavior, or both?
-* **C. What does “implicit awareness of successive runs” really mean?**
-
-  * C1. Does the model “know” it will get more turns?
-  * C2. What is the protocol/contract that makes multi‑step behavior sensible?
-* **D. How training explains agentic behavior**
-
-  * D1. Are models trained on full tool‑use traces?
-  * D2. How does next‑token prediction make “call a tool now” the likely next step?
-  * D3. What changes when tools or loops are not available?
 
 ---
 

@@ -4,41 +4,9 @@ This guide focuses on **architecture constraints**: what these “agent SDK” s
 
 ---
 
-## 1) The questions this guide answers (and how they connect)
+## 1) Core concepts (high-level first)
 
-### 1.1 Question map (tree)
-
-**Q0. How do I know where an agent system can run?**
-
-* **Q1. What do people mean by “agent SDK”?**
-
-  * Q1.1 Is it something you embed, or something you run as a separate service?
-* **Q2. What environment capabilities does the system require for execution?**
-
-  * Q2.1 Does it require a persistent server/daemon?
-  * Q2.2 Does it require a real filesystem workspace?
-  * Q2.3 Does it require spawning subprocesses (shell/commands)?
-* **Q3. How do Pi, OpenCode, and Claude Agent SDK map onto those requirements?**
-
-  * Q3.1 What is the typical setup?
-  * Q3.2 What won’t work in constrained environments?
-* **Q4. What does that imply for common environments and sandboxes?**
-
-  * Q4.1 Laptop / VM-container / CI / edge-serverless
-  * Q4.2 “Sandboxes” (Daytona, Modal, Cloudflare Sandboxes)
-
-### 1.2 The through-line
-
-To answer “where can this run?”, do two things:
-
-1. Identify **where execution happens** (inside your program vs in a separate runtime).
-2. Identify **what execution needs** (workspace/filesystem, subprocess/shell, long-lived processes).
-
----
-
-## 2) Core concepts (high-level first)
-
-### 2.1 “Agent SDK” usually means “a system you can program against”
+### 1.1 “Agent SDK” usually means “a system you can program against”
 
 At a distance, many agent products look similar: you call a function or API endpoint and you get streaming output.
 
@@ -47,7 +15,7 @@ Under the hood, the main difference is operational:
 * **Embedded execution:** the agent’s execution happens inside the program you run.
 * **Service execution:** the agent’s execution happens in a separate runtime you run somewhere.
 
-### 2.2 Three capabilities determine most deployment constraints
+### 1.2 Three capabilities determine most deployment constraints
 
 When deciding where an agent can run, ask:
 
@@ -59,9 +27,9 @@ If a system requires **workspace + subprocess**, it typically belongs on a **VM/
 
 ---
 
-## 3) The three systems, compared by runtime requirements
+## 2) The three systems, compared by runtime requirements
 
-### 3.1 One table (read this first)
+### 2.1 One table (read this first)
 
 | Dimension (execution)                          | Pi (pi-ai / pi-agent-core)                | OpenCode (and OpenCode SDK)   | Claude Agent SDK (Claude Code–based)                   |
 | ---------------------------------------------- | ----------------------------------------- | ----------------------------- | ------------------------------------------------------ |
@@ -73,7 +41,7 @@ If a system requires **workspace + subprocess**, it typically belongs on a **VM/
 
 **Important nuance:** Pi *can* be run without filesystem/subprocess if you deliberately avoid Bash and keep tools as pure HTTP/API calls. But many real Pi-based agent setups assume a Bash tool exists, which pulls Pi toward VM/container-style execution.
 
-### 3.2 Pi (pi-ai / pi-agent-core): embedded toolkit (often paired with Bash)
+### 2.2 Pi (pi-ai / pi-agent-core): embedded toolkit (often paired with Bash)
 
 **Typical execution**
 
@@ -94,7 +62,7 @@ If a system requires **workspace + subprocess**, it typically belongs on a **VM/
 
 * If you explicitly avoid Bash and keep tools to HTTP/API calls only, Pi can execute in more constrained environments.
 
-### 3.3 OpenCode: server-first execution
+### 2.3 OpenCode: server-first execution
 
 **Typical execution**
 
@@ -110,7 +78,7 @@ If a system requires **workspace + subprocess**, it typically belongs on a **VM/
 
 * OpenCode execution generally belongs on a dev machine or a VM/container host.
 
-### 3.4 Claude Agent SDK: embedded execution with workspace expectations
+### 2.4 Claude Agent SDK: embedded execution with workspace expectations
 
 **Typical execution**
 
@@ -124,9 +92,9 @@ If a system requires **workspace + subprocess**, it typically belongs on a **VM/
 
 ---
 
-## 4) Environment + sandbox implications
+## 3) Environment + sandbox implications
 
-### 4.1 Where each system can execute (rule of thumb)
+### 3.1 Where each system can execute (rule of thumb)
 
 | Environment                                 | Pi                            | OpenCode              | Claude Agent SDK |
 | ------------------------------------------- | ----------------------------- | --------------------- | ---------------- |
