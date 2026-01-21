@@ -2,37 +2,24 @@
 
 When building an agent, a key architectural decision is whether to choose a **server-first** solution or an **SDK-first** approach. This guide explains the differences, trade-offs, and how to decide based on your product requirements like multi-client support and session persistency.
 
-## 1) The decision: do you need server-first?
-
-This section intentionally starts high-level and slightly approximate, to make the choice easy.
-
-### 1.0 “Resumable conversations” has two meanings
-
-A lot of confusion comes from the word **resumable**. It can mean either:
-
-* **Resume from saved history (transcript resumability)**
-
-  * You store messages/state somewhere.
-  * Later, you load that state and continue.
-  * This can be entirely **single-client** (one app/CLI owns the experience).
-
-* **Reattach to a running session (service-like resumability)**
-
-  * A session has an **addressable ID** and a **live runtime** that may keep working.
-  * Clients can **attach later** to watch progress, **stream outputs**, and **cancel/interrupt**.
-  * This often implies **multiple clients** (or devices) and forces decisions about who can control the session.
-
-A framework being “server-first” is most relevant to the **second** meaning.
+## 1) The decision: Server-first vs SDK-first
 
 ### 1.1 You likely need a server-first solution if…
 
-Pick **server-first** when one or more of these is true (especially if you mean **service-like** resumability, not just “load a transcript”):
+You should pick a **server-first** framework if you need **service-like resumability**—meaning the ability to reattach to a live, running session rather than just loading a static transcript.
 
-* **Multiple client surfaces** are expected (CLI today, IDE tomorrow, Slack/web later), and you want them all to attach to the same agent sessions.
-* You need **long-lived background sessions** that keep running when no UI is connected.
-* You need **multi-user or team usage** (auth, tenancy, auditability) where sessions behave like shared services.
-* You want **standard session semantics** out of the box: connect → stream → interrupt/cancel → resume (and sometimes fork).
-* You want to minimize the amount of bespoke “glue” required to add new clients.
+Specifically, server-first is the right choice if:
+
+* **You need background sessions to which you can re-attach.**
+  In a server-first model, the agent runs independently of the client. This allows you to connect from one device (e.g., your laptop), start a long task, disconnect, and then connect from another device (e.g., your phone) to see the live stream of the agent thinking and calling tools.
+
+* **Multiple client surfaces are expected** (CLI today, IDE tomorrow, Slack/web later), and you want them all to attach to the same agent sessions.
+
+* **You need multi-user or team usage** (auth, tenancy, auditability) where sessions behave like shared services.
+
+* **You want standard session semantics** out of the box: connect → stream → interrupt/cancel → resume (and sometimes fork).
+
+* **You want to minimize the amount of bespoke “glue”** required to add new clients.
 
 In short: if you’re building an **agent-as-a-service** (even internally), server-first is usually the least painful starting point.
 
@@ -142,7 +129,7 @@ Even when a framework offers tools/hooks/plugins, you typically still compose:
 Ask these questions:
 
 * Will the agent need to serve **multiple clients** (IDE + web + chat + CLI), possibly simultaneously?
-* Are you in the **“service-like resumability”** case from **§1.0–§1.2** (i.e., sessions you can **reattach to**, **stream**, and **cancel/interrupt**), rather than just reloading saved history?
+* Are you in the **“service-like resumability”** case (i.e., sessions you can **reattach to**, **stream**, and **cancel/interrupt**), rather than just reloading saved history?
 * Will the agent run **in the background** as a long-lived service?
 
 If “yes” to any: prefer **server-first**.
