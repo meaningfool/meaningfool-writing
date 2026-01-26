@@ -1,3 +1,8 @@
+---
+title: "Prolifics and frugals"
+date: 2026-01-26
+---
+
 # Prolifics and frugals
 
 **The world splits into prolifics and frugals.**

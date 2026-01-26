@@ -4,6 +4,7 @@ Themes to add:
 - 2 philosophies: intelligent design vs emergent design
 - what generates specialization
 - User Stories are a flat-earthers' thing
+- ticket-tracker tweet for forgetting
 
 
 # When to design
