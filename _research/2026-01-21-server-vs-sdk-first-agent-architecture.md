@@ -134,3 +134,52 @@ Ask these questions:
 
 If “yes” to any: prefer **server-first**.
 If “no” to all: **SDK-first** is usually simpler, with the understanding that you may later build the server layer described above.
+
+
+
+--
+
+## Associated beginner-friendly questions
+
+
+What does “server-first” mean for an agent framework, in plain terms?
+(Is it a server you connect clients to, or a library you embed?)
+
+Is “server-first” mainly about networking, or about how sessions/state are managed?
+(What’s the core architectural difference that actually matters?)
+
+When someone says “we want to put the agent wherever the team works,” what does that imply technically?
+(Why does that push you toward server-first?)
+
+Is “resumable conversation” enough to decide between server-first and SDK-first?
+(What does “resumable” even mean in this context?)
+
+What are the two different meanings of “resumable” for agents, and why do they lead to different architectures?
+(Reloading a transcript vs reattaching to a running session.)
+
+What does it mean to “reattach” to a session, concretely?
+(What is running, where is it running, and what does the client reconnect to?)
+
+Why does reattachment imply you need streaming and cancellation?
+(Why can’t you just poll or just store outputs?)
+
+What problems appear as soon as multiple clients can connect to the same agent session?
+(Single-writer vs multi-writer, watchers, ordering, locking.)
+
+If a framework is SDK-first, what are the minimum extra layers I must build to support multiple clients?
+(Session API, streaming transport, multi-client rules, auth/tenancy.)
+
+What’s the difference between “the SDK can stream internally” and “my product supports streaming”?
+(Async generator/events vs SSE/WS + reconnect/backpressure.)
+
+What exactly is “cancellation/interrupt” in an agent loop, and why is it not a trivial feature?
+(What gets cancelled: token stream, tool run, subprocess, whole session?)
+
+What’s the difference between tools, hooks, and plugins in agent systems?
+(And what does the builder still need to do even if the framework supports them?)
+
+If a framework advertises “plugins/hooks,” why do I still have to build governance/distribution?
+(Permissions, allowlists, tenant isolation, versioning, enablement.)
+
+How is pi (badlogic) different from OpenCode and Claude Agent SDK on the “server-first” axis?
+(App vs SDK vs RPC/headless boundary—what that changes for building clients.)

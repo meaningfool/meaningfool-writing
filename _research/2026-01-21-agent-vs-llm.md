@@ -184,3 +184,31 @@ A good summary of the division of labor:
 * **Agentic harness (outer loop):** makes multi‑step behavior real by executing tools, preserving state, and iterating.
 
 Tool‑trained models often behave “agentically” even without an explicit request for a plan because the tool protocol + training on tool traces makes “call a tool, then continue” a highly probable (and often more reliable) continuation than “answer immediately.”
+
+
+
+--
+
+## Associated beginner-friendly questions
+
+
+
+If an LLM “thinks,” why do we need an agent/harness at all? What does the harness add that a single model call can’t do?
+
+What exactly is the difference between “inner loop” (model reasoning) and “outer loop” (harness orchestration)?
+
+When an agent makes multiple tool calls, who decides the sequence—does the harness force a plan, or does the model choose to break the task down?
+
+If the user just says “solve,” why would the agent not answer in the first model call? What makes it decide to ask for tools first?
+
+Does a tool-using model have some kind of “awareness” that it will get another turn after a tool call? If not, why does it behave that way?
+
+What does “tool calling” mean technically—how can the model output something that isn’t a normal answer, and how does that become a real tool execution?
+
+Is decomposition/planning something you have to explicitly prompt (“make a plan”), or is it a natural behavior that emerges whenever tools + an outer loop exist?
+
+Are agentic models trained on examples that include tool calls and tool outputs? What does a “full trace” look like from the model’s perspective?
+
+How does “next-token prediction” explain tool use and multi-step behavior? Why would “call a tool” be the most likely next output?
+
+What changes if you remove the harness loop (no follow-up calls) or remove tools—how would the exact same task behave differently?

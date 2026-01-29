@@ -307,3 +307,23 @@ For a schema-editing assistant, the “protocol vs operator” choice determines
 
 * design explicit states and deterministic checks (protocol-first), or
 * rely on a general operator to decide how to proceed (runtime-first).
+
+
+--
+
+## Associated beginner-friendly questions
+
+Here are the “sticky” points you were wrestling with, rewritten as **standalone beginner-friendly questions** you could use to start separate conversations:
+
+1. **“What’s the fundamental difference between an ‘agent runtime’ (like Pi/OpenCode) and an ‘orchestration library’ (like PydanticAI/LangChain)?”**
+2. **“When people say ‘the app stays in control’ vs ‘the agent runs autonomously’, what exactly is being controlled (turns, tools, stop conditions, side effects)?”**
+3. **“What different kinds of ‘loops’ exist in an AI app (user turns, tool loops, multiple model calls), and where does each loop run?”**
+4. **“In a coding-agent setup, does every back-and-forth message between the user and the agent always go through an app layer? What does ‘through the app’ actually mean?”**
+5. **“Can a system like PydanticAI run an internal tool-iteration loop automatically inside one call, or does the app have to manage every tool step?”**
+6. **“If an AI needs clarification, does it need a special ‘ask user’ tool, or can it just ask in normal text? What changes depending on the framework/runtime?”**
+7. **“How do you prevent conversation drift (the user asks something unrelated) in different setups, and what’s realistically enforceable vs not?”**
+8. **“Can you restrict what an agent talks about vs what it can *do*? What are the practical techniques for each?”**
+9. **“Can you reproduce the behavior of a coding agent runtime (Pi/OpenCode) using LangChain or PydanticAI just by adding tools and a loop? If yes, what do you end up rebuilding?”**
+10. **“In a ‘schema editing’ assistant, how do you handle messy user feedback that contains both clear edits and ambiguous requests—without getting stuck in endless clarification loops?”**
+11. **“In PydanticAI-style designs, does the app have to compose the user-facing message, or can the LLM generate the exact message shown to the user while still keeping control?”**
+12. **“What is a ‘harness’ in agent systems—what does it do, and is it something I write or something the framework provides?”**

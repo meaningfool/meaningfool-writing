@@ -102,3 +102,38 @@ If a system requires **workspace + subprocess**, it typically belongs on a **VM/
 | VM/container server                         | ✅                             | ✅                     | ✅                |
 | CI runner (ephemeral workspace)             | ✅                             | ✅ (server inside job) | ✅                |
 | Edge/serverless (no subprocess, limited FS) | ⚠️ (can run **without Bash**) | ❌ (execution)         | ❌ (execution)    |
+
+
+--
+
+## Associated beginner-friendly questions
+
+What do people mean by “agent SDK”?
+Is it a library you import, a server you run, or both?
+
+What’s the practical difference between an “SDK” and a “system”?
+When someone says “OpenCode SDK” or “Claude Agent SDK”, what else (runtime/server/CLI) is included in what they’re talking about?
+
+Where does the agent actually execute?
+Inside my program, inside a separate server, or inside some runtime component that my program drives?
+
+What capabilities does an agent system need from its environment?
+Specifically: do I need (1) a long-lived server/daemon, (2) a real filesystem workspace, (3) the ability to spawn subprocesses?
+
+If an agent needs filesystem + subprocess, what kinds of setups can it run in?
+What works on a laptop, VM/container, CI runner, and what generally won’t work on edge/serverless?
+
+What is “agent behind RPC” (or “agent behind a proxy”)?
+Why would you run an agent in another process/machine and talk to it over HTTP/RPC instead of embedding it?
+
+How are OpenCode and Claude Agent SDK different architecturally if both might be installed on a VPS?
+What makes one “server-first” and the other “library-first” in practice?
+
+Why is it misleading to say “OpenCode SDK needs filesystem access”?
+What part of the OpenCode system needs filesystem/subprocess, and what part can run without them?
+
+Does Pi “assume Bash”, and what does that imply?
+If a framework often uses a Bash tool, does that effectively mean it requires subprocess + workspace in real deployments?
+
+How should I interpret “embedded agent loop” if the SDK relies on an external runtime (like a CLI) underneath?
+When does “embedded” still imply “you need a host that can run commands and access a workspace”?
