@@ -44,7 +44,7 @@ That means basically that bundling 2 changes together is cheaper than doing them
 
 So the higher the cost of change, the stronger the incentive to bundle changes together.
 
-[ADD DIAGRAM]
+![[sub-additive.png]]
 
 ## The rework effect
 

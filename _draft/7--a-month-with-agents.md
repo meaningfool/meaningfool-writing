@@ -1,5 +1,12 @@
 # A Month (learning about agents) in review
 
+## Tooling and models
+
+- Added Zed to the stack: it does not eat up all my memory when I have multiple projects open as VS Code forks do.
+- Goolge may have been nerfing their Gemini 3 Pro model, it is not as good as it used to be. At the same time Antigravity quotas for Opus seem to have decreased. My cheap inference days might be over.
+- Tempted to try out OpenAI models/codex, as my experience with Claude matches [this one](https://x.com/MarcJSchmidt/status/2006809732582093095)
+![[switch-to-codex-tweet.png]]
+
 ## Two skills finalized
 
 I finalized two Claude Code skills that encode my own workflows:
@@ -53,7 +60,7 @@ I spent time understanding the landscape of agent frameworks and agentic archite
 
 - I dove into ClawdBot (now renamed MoltBot). I haven't fully adopted it yet, but I ran some experiments. 
 - Deployed 2 instances: one on my Mac, another on Hetzner.
-- It was the opportunity for my first ever PR to a public open-source project. 
+- It was the opportunity for my [first ever PR](https://github.com/openclaw/openclaw/pull/48) to a public open-source project.
 - This project poses obvious security risks:
   - [Suplly Chain Attack](https://x.com/theonejvo/status/2015892980851474595)
   - [Clawdbot Security Hardening](https://x.com/DanielMiessler/status/2015865548714975475)
