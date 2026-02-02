@@ -1,3 +1,8 @@
+---
+title: "How long for that change?"
+date: 2026-02-02
+---
+
 # How long for that change?
 
 Can we break down the time it takes to make a change?
@@ -27,7 +32,7 @@ Kent Beck framed [the Cost of change](https://tidyfirst.substack.com/p/change) a
 
 > cost(change) = cost(understand) + cost(modify) + cost(validate) + cost(deploy)
 
-![[kent-beck-cost-of-change.png]]
+![kent-beck-cost-of-change](../images/kent-beck-cost-of-change.png)
 
 ## The bundling effect
 
@@ -44,7 +49,7 @@ That means basically that bundling 2 changes together is cheaper than doing them
 
 So the higher the cost of change, the stronger the incentive to bundle changes together.
 
-![[sub-additive.png]]
+![sub-additive](../images/sub-additive.jpg)
 
 ## The rework effect
 
@@ -66,7 +71,7 @@ The only 2 mitigation strategies are:
 - Reduce the number of iterations.
 - Reduce the rework for each iteration by designing upfront to make each work unit forward-compatible with future iterations. 
 
-![[cost-of-rework.jpg]]
+![cost-of-rework](../images/cost-of-rework.jpg)
 
 ## The 2 design philosophies
 
@@ -86,7 +91,7 @@ Rework, however, is only as impactful as the cost of change:
 - High cost of change means rework is expensive, pushing toward Big Design Up Front
 - Lower cost of change means rework is cheap, pushing toward XP
 
-![[rework-vs-assumption-tradeoff.jpg]]
+![rework-vs-assumption-tradeoff](../images/rework-vs-assumption-tradeoff.jpg)
 
 ## Conclusion
 As a non-programmer, who came to software through a "project" design-first approach, I've found in Agile, in the 2nd half of 2010s, a mix of powerful AND moot concepts and practices. 
