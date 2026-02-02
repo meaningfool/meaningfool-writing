@@ -1,3 +1,8 @@
+---
+title: "A Month (learning about agents) in review"
+date: 2026-02-02
+---
+
 # A Month (learning about agents) in review
 
 ## Tooling and models
@@ -5,7 +10,7 @@
 - Added Zed to the stack: it does not eat up all my memory when I have multiple projects open as VS Code forks do.
 - Goolge may have been nerfing their Gemini 3 Pro model, it is not as good as it used to be. At the same time Antigravity quotas for Opus seem to have decreased. My cheap inference days might be over.
 - Tempted to try out OpenAI models/codex, as my experience with Claude matches [this one](https://x.com/MarcJSchmidt/status/2006809732582093095)
-![[switch-to-codex-tweet.png]]
+![switch-to-codex-tweet](../images/switch-to-codex-tweet.png)
 
 ## Two skills finalized
 
