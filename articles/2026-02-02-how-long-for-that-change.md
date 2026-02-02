@@ -5,24 +5,23 @@ date: 2026-02-02
 
 # How long for that change?
 
-Can we break down the time it takes to make a change?
+**Can we break down the time it takes to make a change?**
 - It depends on the size of the change: obviously.
 - The talent, seniority and dedication of the team matters: sure.
 - The size of the change: no question.
 
 But there is something else.
 
-That something is sometimes referred to as "complexity" because some changes, even small in size can have an outsize impact.
+**Some changes, even small in size can have an outsize impact.**
 This may be due to ill-chosen abstractions, spaghetti code, lack of proper devops, or other factors.
-Bottomline, this "complexity" is understood as slowing things down. 
-And when it's a systemic issue, we call it "technical debt".
+This extra factor is called "complexity" or "technical debt".  
 
-As such both terms offer little leverage to make things better: 
+**But either concept offer little leverage to make things better:**
 - They are vague and source of personal interpretation.
 - They keep non-engineer at bay.
 - They don't surface what matters: what makes small changes disproportionately costly.
 
-Kent Beck introduced a much more actionable concept: the Cost of change.
+Kent Beck introduced a much more actionable concept: the **Cost of change**.
 
 Kent Beck framed [the Cost of change](https://tidyfirst.substack.com/p/change) as the time it takes to:
 - Understand what needs to be changed
@@ -47,7 +46,7 @@ Linear functions with a constant term are subadditive:
 
 That means basically that bundling 2 changes together is cheaper than doing them separately.
 
-So the higher the cost of change, the stronger the incentive to bundle changes together.
+**So the higher the cost of change, the stronger the incentive to bundle changes together.**
 
 ![sub-additive](../images/sub-additive.jpg)
 
@@ -63,27 +62,28 @@ Consider a feature:
 - Costing W' = Sum(W1,..., Wn) if implemented in n iterations.
 
 If each iteration is to be released independently, meaning that the software is fully functional at each step, we can expect some level of rework with each iteration.
-That means that each iteration adds a little extra cost: the cost of rework.
+**Each iteration adds a little extra cost: the cost of rework.**
 
 > Sum(W1,..., Wn) > W
 
-The only 2 mitigation strategies are:
-- Reduce the number of iterations.
-- Reduce the rework for each iteration by designing upfront to make each work unit forward-compatible with future iterations. 
+There are 3 possible strategies / philosophies to deal with the cost of rework:
+- **Waterfall:** Reduce the number of iterations.
+- **Big Design Up Front:** Reduce the rework for each iteration by designing upfront to make each work unit forward-compatible with future iterations. 
+- **eXtreme Programming:** Embrace the rework.
 
 ![cost-of-rework](../images/cost-of-rework.jpg)
 
-## The 2 design philosophies
+## Big Design Up Front vs eXtreme Programming
 
 There are 2 ways to approach rework:
 1. Avoid it as much as possible (Big Design Up Front)
 2. Embrace it because there is no way around it (eXtreme Programming - XP)
 
-Big Design Up Front:
-1. Bets that additional up-frontdesign work more than offsets the prevented rework down the road.
+**Big Design Up Front:**
+1. Bets that additional up-front design work more than offsets the prevented rework down the road.
 2. Bets that current assumptions (that design decisions are based upon) will hold true.
 
-XP on the other hand:
+**XP**
 1. Bets on minimizing assumptions, even if it means embracing rework.
 2. Bets that frequency (of learning) beats speed (of delivery).
 
@@ -100,11 +100,11 @@ But nothing to string them together and cut through the noise.
 Only floating pieces.
 
 Understanding the Cost of change changed that:
-- I could now make sense of observations about software development dynamics I had made over my career (the bundling bias, the slicing fallacy)
-- I could now visualize how Big Design Up Front and XP are just 2 opposite views on the same tradeoff.
-- I could now identify how some product roles (PMs and designers) and practices (specs, handoffs) make more sense in high cost of change environments.
+- I could now make sense of observations I had made over my career about **software development dynamics:** the bundling bias, the slicing fallacy.
+- I could now visualize how **Big Design Up Front and XP are just 2 opposite views on the assumption / rework tradeoff.**
+- I could now identify how **some product roles (PMs and designers) and practices (specs, handoffs) make more sense in high cost of change environments.**
 
-And it provides an angle to look at the impact of GenAI in product building:
+And it provides an angle to look at the **impact of GenAI** in product building:
 - GenAI collapses the time to *Make the change* and *Validate the change*. With proper devops, the bottleneck becomes the ability to *Understand what needs to be changed*.
 - *Software* Cost of change used to be the overwhelming contributor to the Cost of change. When it drops, what are the remaining contributors that define the competitive landscape?
 - But actually, is Cost of change dropping uniformly? Or is GenAI actually increasing the discrepancies?
