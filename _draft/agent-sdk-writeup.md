@@ -392,6 +392,103 @@ Three points from this section:
 - **The harness is not optional for agent-driven systems.** When the agent self-orchestrates, the harness — policies, permissions, tools, modes, hooks — is what keeps it reliable. This is the infrastructure that separates a toy demo from a production system.
 
 
+# Part 3 — Agent as feature / Agent as the app
+
+## 3.1 Scenario ladder
+
+### A0 — In‑app Agent
+
+**User story:** "The agent is a feature inside a specific app boundary."
+
+- Runs inside the app's runtime boundary (same process, same machine, or the same job/container boundary).
+- If that runtime boundary ends, the agent ends with it.
+- You don't *attach* to it from elsewhere; you *use the feature* where it runs.
+
+**Examples (illustrative):**
+
+- A local CLI agent running on your laptop.
+- A GitHub Action/CI job that runs an agent inside the single job container (it dies with the job).
+
+### S1 — Job-running Agent
+
+**User story:** "I send a request to an agent running elsewhere and get output."
+
+- Runs in another process/service boundary.
+- Output can be returned all‑at‑once or streamed (optionally you can store the output of the process in a DB (Claude-in-the-box)
+- You can't have a back-and-forth with the agent.
+- If you disconnect, you can't reattach to the same run; the run is typically short‑lived.
+- Ephemeral & Stateless agent
+
+### S2 — Interactive Agent
+
+**User story:** "I can go back‑and‑forth with the agent while it's running."
+
+- Multiple turns while connected.
+- Once you disconnect the agent and the conversation cannot be reloaded / reconnected to
+- Ephemeral & Stateful  (conversation)
+
+### S3 — Resumable / Durable Agent
+
+**User story:** "I can leave and come back later, and  pick up  where we left off."
+
+This scenario is **a matter of degree** along (at least) two axes:
+
+- **State you can resume with** (from minimal to rich):
+
+  - **Conversation history** (messages + key decisions/notes).
+  - **Artifacts** (stored outputs you care about: reports, patches, extracted data).
+  - **Trace** (a record of tool calls and results/observations, including what happened since your last turn, so the system can rebuild context and avoid re-running side‑effectful steps).
+
+At this level, the system makes a stronger promise: **you can leave and later continue** with whatever state it chose to persist.
+
+### S4 — Multi‑client Agent
+
+**User story:** "Multiple clients (or people/devices) can connect to the same agent."
+
+- Multiple attachments to the same session/run.
+- Clear rules for who can send input and how conflicts are handled.
+
+---
+
+## 3.2 What you add when you climb the ladder
+
+### A0 → S1: make it callable from elsewhere
+
+- **Remote invocation surface:** an API endpoint/command channel that accepts input and returns output.
+- **Output delivery:** choose **single response** vs **streamed output** (progress/logs or incremental result).
+- **Remote runtime packaging:** define what environment the agent has (tools, filesystem, credentials) in that remote boundary.
+- **Run boundary definition:** define what "one run" is and what is cleaned up at the end.
+
+### S1 → S2: add live back‑and‑forth
+
+- **Bidirectional messaging:** ability for the client to send additional turns *while the run is live* (not just one POST).
+- **Run/session routing:** turn #2 must be routed to the **same live run** (not spawn a fresh run).
+- **Live state retention during connection:** keep the run alive across turns while at least one client is connected.
+
+### S2 → S3: add resumability (and, by degree, durability)
+
+- **Session identity:** introduce a durable ID for "this conversation / workspace" so a client can later target the same session.
+
+- **State persistence (what survives):** choose how much state you store, from minimal to rich:
+  - **Conversation history:** messages + key decisions/notes needed to continue.
+  - **Artifacts:** stored outputs you care about later (files, patches, reports).
+  - **Trace:** a record of tool calls and results/observations (across the session, including what happened since your last turn) so the system can rebuild context and avoid re-running side‑effectful steps.
+
+- **Context reconstruction:** the ability to rebuild the *next model input* from persisted state (conversation + optional artifacts/trace), often with summarization/compaction.
+
+- **Background continuation:** define what happens when no client is connected.
+  - stop when the client disconnects
+  - keep running for a grace period (TTL/keep‑warm)
+  - run to completion in the background
+  - plus stop/cancel/budget rules
+
+### S3 → S4: add multiple attachments
+
+- **Multi‑subscriber output:** broadcast the same run/session outputs to multiple connected clients.
+- **Input coordination model:** define single‑controller vs queued multi‑writer vs forked sessions; guarantee ordering.
+- **Attach semantics:** new client can join live tail and/or request catch‑up replay.
+
+
 # Part 5 — Bash and the filesystem
 
 ## Why code beats tool calls
