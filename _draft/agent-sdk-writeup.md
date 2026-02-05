@@ -491,121 +491,138 @@ Three points from this section:
 - **This has architectural consequences.** Bash and filesystem access require a runtime that supports them. Serverless and edge environments do not. The workaround — containers, VMs, sandboxes — represents a shift from "functions as units of compute" to "sessions as units of compute."
 
 
+
+
+
+
+
 # Part 4 — The service boundary
 
-**The vertical axis on our 2×2 map asks: where does the agent run relative to the user?**
+**Start with what you know: Claude Code on your laptop.**
 
-On one side, the agent runs *within* the same boundary as your code — same process, same machine, same container. You call a function, the agent runs, you get a result. When your process ends, the agent ends.
+You type a command. The agent runs. You see the output. When you close your terminal, the agent is gone.
 
-On the other side, the agent runs *behind a service boundary* — a separate process, a separate machine, an API you call over the network. The agent's lifecycle is decoupled from yours.
+This is the simplest case. The agent runs in the same place as you — same machine, same process, same lifecycle. No network, no API, no persistence questions. The Claude Agent SDK handles session state automatically, saving it to disk in `~/.claude/projects/`.
 
-This is the difference between using a library and calling a server.
+**But what if you want more?**
 
-## The two sides
+## From Claude Code to Claude Agent SDK
 
-**Within the boundary: agent as library.**
+**The first step is programmatic access.**
 
-Claude Code running on your laptop. An agent in a GitHub Actions job. A PydanticAI agent called from your FastAPI endpoint. In all these cases, the agent runs in the same runtime as your code. You import a module, call a function, iterate over results. When your script exits or your container dies, the agent is gone.
+Claude Code is interactive — you type, it responds. The Claude Agent SDK exposes the same capabilities as a library. Same engine, different interface.
 
-The Claude Agent SDK, PydanticAI, and Vercel AI SDK are all designed for this mode. They give you a function you call. What happens around that function — the HTTP server, the persistence, the authentication — is your responsibility.
+Why would you want this?
+- **Automation.** Run the agent without human interaction.
+- **Integration.** Embed agent capabilities in your own application.
+- **Custom tools.** Add domain-specific tools via MCP or SDK hooks.
+- **Structured output.** Get machine-readable results instead of terminal text.
 
-**Behind the boundary: agent as service.**
+A simple example — a script that runs locally on your machine:
 
-ChatGPT. Claude.ai. Ramp's Inspect agent. In these cases, the agent runs somewhere else. You connect to it over HTTP or WebSocket. You can close your browser and come back later. Multiple people might connect to the same conversation. The agent might keep working while you're away.
+```python
+from claude_agent_sdk import query
 
-When you put an agent behind a service boundary, you take on new responsibilities. The exact responsibilities depend on what kind of experience you want to provide — and critically, on whether your runtime persists.
+async for message in query(
+    prompt="Run the test suite and fix any failures",
+    options={"allowed_tools": ["Bash", "Read", "Edit"]}
+):
+    print(message)
+```
 
-## What changes when you cross the boundary
+This still runs on your laptop. Same boundary — you call a function, the agent runs, you get a result.
 
-**The minimum: transport and invocation.**
+## The GitHub Actions example
 
-At the very least, you need a way to send requests to the agent and receive responses. This is the transport layer. Options range from simple to complex:
+**The next step: run the agent somewhere else, triggered by an event.**
 
-- **HTTP request/response** — client sends a request, waits for the full response. Simple, but no streaming.
-- **HTTP + Server-Sent Events (SSE)** — client sends a request, server streams the response back as events. Good for showing progress and partial results.
-- **WebSocket** — bidirectional connection. Client and server can send messages at any time. Required for true real-time interaction.
+Claude Code in GitHub Actions is a good illustration. When someone opens a PR or mentions `@claude` in a comment, the agent runs in the job container. It reads the code, makes changes, posts a response.
 
-Claude in the Box, the minimal example, uses HTTP + SSE. It accepts a POST request, spins up a sandbox, runs the agent, and streams stdout back as the response. That's the absolute minimum: accept request, run agent, stream output.
+Key insight: **the job container is ephemeral — it's destroyed after the job ends.** Yet multi-turn conversation still works. How?
 
-**Beyond minimum: it depends on your runtime.**
+GitHub's comment threads *are* the persistence. The agent doesn't need to remember. It reads the issue or PR at the start of each job. GitHub handles the conversation history. The agent just needs to read it and respond.
 
-Here is where the conditional logic kicks in. What else you need to build depends on one question: **does your runtime persist between requests?**
+This is a pattern worth noting: **if your platform already has persistence, you can piggyback on it.**
 
-## When the runtime persists
+## Crossing the service boundary
 
-**If your agent runs on a VPS, a dedicated server, or a long-running container — the runtime persists.**
+**Now imagine you want something like ChatGPT or Claude.ai — for yourself.**
 
-The process stays alive between requests. Files on disk remain. Conversation history stays in memory (or in session files the SDK manages). When the user sends their next message, the agent is still there, still has context, still has the files it created.
+The requirements change:
+- Access from anywhere, not just your laptop or a CI job
+- Close your browser, come back later, continue the conversation
+- See the agent's progress in real-time as it works
+- Maybe multiple people connecting to the same conversation
 
-In this case, you don't need to build persistence infrastructure. The runtime *is* your persistence. The Claude Agent SDK, for example, saves sessions to disk by default (`~/.claude/projects/`). As long as the process keeps running and the disk stays around, you can resume where you left off.
+This is what it means to put an agent *behind a service boundary*. The agent runs somewhere else. You connect to it over the network.
 
-Modal's sandbox snapshots work this way too. Ramp uses Modal to freeze and restore the entire VM state — not just files, but running processes. When a user returns, the sandbox is restored from snapshot. From the agent's perspective, no time has passed.
+**What is a service boundary?**
 
-**What you still need:**
-- Transport (HTTP/WebSocket server)
-- Routing (direct requests to the right session/conversation)
-- Maybe authentication
+The term comes from distributed systems. It's the line between "code I call directly" and "code I call over the network." When you import a library and call a function, there's no service boundary. When you make an HTTP request to an API, there is.
 
-**What you don't need to build:**
-- State persistence (the runtime handles it)
-- Context reconstruction (context was never lost)
+The difference matters because:
+- The agent's lifecycle is decoupled from yours. It can keep running when you disconnect.
+- You need a way to communicate (transport).
+- You need a way to find the right conversation (routing).
+- State might be lost between requests — depending on your architecture.
 
-## When the runtime is ephemeral
+## What you need to build
 
-**If your agent runs in a serverless function, a fresh container per request, or a sandbox that's destroyed after each run — the runtime is ephemeral.**
+**Transport: how client and agent communicate.**
 
-Everything is lost when the request ends. Memory, files, conversation history — all gone. The next request starts from zero.
+Options, from simple to complex:
+- **HTTP request/response** — send a request, wait for the full response. No streaming.
+- **HTTP + SSE (Server-Sent Events)** — send a request, receive a stream of events. Good for showing progress.
+- **WebSocket** — bidirectional, real-time. Client and server can send messages anytime.
 
-In this case, you must explicitly persist what matters. And when the user returns, you must reconstruct the context from what you saved.
+Claude in the Box, a minimal example, uses HTTP + SSE. It accepts a POST, spins up a sandbox, runs the agent, and streams stdout back. That's the minimum: accept request, run agent, stream output.
 
-**What to persist:**
+(Authentication typically sits on top of the transport — an API key, a JWT, OAuth. It's standard web infrastructure, not specific to agents.)
 
-- **Messages.** The conversation history — what the user said, what the agent said. Without this, you can't continue a conversation.
-- **Artifacts.** Files the agent created or modified — patches, reports, extracted data. These are the outputs the user cares about.
-- **Traces** (optional but valuable). A record of tool calls and their results. This lets you avoid re-running side effects (don't send the same email twice) and helps the agent understand what already happened.
+**Routing: finding the right conversation.**
 
-Where you persist depends on your architecture. A database is the obvious choice. But simpler options exist: Cloudflare's moltworker project mounts an R2 bucket (object storage) as a filesystem using s3fs. Files written to that mount point survive container destruction. It's a hybrid — ephemeral runtime, but persistent filesystem.
+If users can have multiple conversations, you need session IDs. If the agent runs in a specific container or process, you need to route requests to the right one.
 
-**Context reconstruction — only when context is lost.**
+OpenCode (what Ramp uses) is designed for this — it runs an HTTP server and handles session routing out of the box. The Claude Agent SDK is not — you build the routing yourself.
 
-When the user returns and you spin up a fresh runtime, you need to rebuild the model's context from persisted state. This is context reconstruction.
+**State persistence: only if your runtime is ephemeral.**
 
-The challenge: you probably can't fit everything back in. A long conversation with many tool calls might exceed the model's context window. So you summarize, compact, or selectively include only what's relevant.
+This is where the architecture decision matters.
 
-This is non-trivial. It's why resumability is harder than it sounds. The Claude Agent SDK handles some of this automatically for local sessions. But when you're building a service with ephemeral runtimes, you own this problem.
+If your agent runs on a **persistent runtime** — a VPS, a dedicated server, a long-running container — the runtime *is* your persistence. Files stay on disk. Session state stays in memory. The Claude Agent SDK saves sessions automatically. When the user returns, everything is still there.
 
-## Background continuation
+Modal's sandbox snapshots work this way. Ramp uses Modal to freeze and restore the entire VM state — files, processes, memory. When a user returns, the snapshot is restored. From the agent's perspective, no time passed.
 
-**What happens when the client disconnects?**
+If your agent runs on an **ephemeral runtime** — a serverless function, a fresh container per request — everything is lost when the request ends. You need to explicitly save what matters:
+- **Messages** — the conversation history
+- **Artifacts** — files the agent created (patches, reports, data)
+- **Optionally, traces** — tool calls and results, to avoid re-running side effects
 
-If the runtime persists, you have options:
-- **Stop immediately.** The agent waits for the next user message.
-- **Keep running.** The agent continues working on the current task. When the user returns, they see the results.
-- **Run with a timeout.** Keep going for a grace period (10 minutes, an hour), then stop.
+Where you persist is up to you. A database is the obvious choice. Cloudflare's moltworker mounts an R2 bucket as a filesystem — files written there survive container destruction.
 
-If the runtime is ephemeral, the question is moot — the container is destroyed anyway. Unless you're using something like Cloudflare's Durable Objects with WebSocket hibernation, which keeps the connection "alive" even while the underlying compute is evicted.
+When the user returns, you load the persisted state back into the SDK. The SDK handles feeding it to the model. There's no special "reconstruction" step — you just load the messages and continue.
 
-Ramp's architecture handles this explicitly. Users can queue follow-up prompts while the agent is working. The agent processes them sequentially. If the user closes the tab, the agent keeps going. Results are waiting when they return.
+**Background continuation: what happens when the client disconnects?**
 
-## A concrete comparison
+If the runtime persists:
+- **Stop immediately** — wait for the next user message
+- **Keep running** — continue the task, show results when user returns
+- **Run with timeout** — keep going for a grace period, then stop
 
-| Aspect | Claude Code (local) | GitHub Actions | Claude in the Box | Ramp Inspect |
-|--------|---------------------|----------------|-------------------|--------------|
-| **Boundary** | Within (same machine) | Within (same job) | Behind (HTTP API) | Behind (HTTP/WS API) |
-| **Runtime** | Persists (your laptop) | Ephemeral (job container) | Ephemeral (sandbox per request) | Ephemeral + snapshots |
-| **Persistence** | SDK handles (disk) | GitHub handles (comments) | None (stateless) | Modal snapshots + Cloudflare DO |
-| **Context reconstruction** | Not needed | Not needed (GitHub is context) | Not needed (no multi-turn) | Snapshot restore |
-| **Multi-turn** | Yes | Yes (via comment threads) | No | Yes |
+Ramp's architecture handles this explicitly. Users can queue follow-up prompts while the agent works. If they close the tab, the agent keeps going. Results are waiting when they return.
 
-Notice how GitHub Actions sidesteps the persistence problem entirely. The job container is ephemeral, but conversation history lives in GitHub's comment threads. GitHub *is* the persistence layer. The agent doesn't need to remember — it reads the issue or PR each time.
+If the runtime is ephemeral, the container is destroyed anyway — unless you use something like Cloudflare's Durable Objects with WebSocket hibernation.
 
-## What the SDKs give you (and what they don't)
+## SDK-first vs server-first
 
-**Claude Agent SDK** gives you:
-- Session management with automatic disk persistence
+**The Claude Agent SDK is SDK-first.**
+
+It gives you:
+- The agent loop
+- Built-in tools (Read, Write, Edit, Bash, Glob, Grep)
+- Session management with disk persistence
 - Conversation history tracking
-- File checkpointing (track and revert changes)
-- Session forking (branch a conversation)
+- Hooks for custom behavior
 
 It does *not* give you:
 - HTTP/WebSocket server
@@ -613,24 +630,20 @@ It does *not* give you:
 - Authentication
 - Database integration
 
-**PydanticAI** gives you:
-- Type-safe agent definitions
-- Message history passing between agents
-- Multi-model support
+You build the service boundary yourself.
 
-It does *not* give you:
-- Session persistence (you implement with a database)
-- Transport layer (you add FastAPI or similar)
-- Sandboxing
+**OpenCode is server-first.**
 
-The pattern is consistent: the SDKs handle the agent loop. Everything around the agent loop — the service boundary concerns — is yours to build.
+It ships as a server with an HTTP API. Clients (CLI, IDE plugins, web apps) connect to it. Session routing, streaming, cancellation — all built in. You build clients, not the service layer.
+
+The trade-off: SDK-first gives you control but requires more work. Server-first gives you structure but less flexibility.
 
 ## What to keep in mind
 
-- **The question is: does your runtime persist?** If yes, persistence is handled. If no, you need to explicitly save messages, artifacts, and optionally traces.
-- **Context reconstruction is conditional.** You only need it when context is lost — i.e., when the runtime is ephemeral and you're resuming a conversation on a fresh instance.
-- **GitHub Actions shows a clever shortcut.** If your platform already has persistence (comment threads, issue bodies, PR descriptions), you can piggyback on it instead of building your own.
-- **The SDKs handle the agent loop. The service boundary is yours.** Transport, routing, authentication, persistence — these are your responsibility when you move from library to server.
+- **The progression is real.** Claude Code → Claude Agent SDK → behind a service boundary. Each step adds capabilities and complexity. You don't need to jump to the end.
+- **GitHub Actions is a clever shortcut.** The platform handles persistence (comments), transport (GitHub API), and routing (issues/PRs). The agent just reads and responds.
+- **The key question is: does your runtime persist?** If yes, state management is handled. If no, you need to save messages and artifacts explicitly.
+- **There's no mysterious "context reconstruction."** When you resume, you load persisted messages into the SDK. The SDK handles feeding them to the model. That's it.
 
 
 # Part 5 — Where can it run? Environment constraints without ideology
