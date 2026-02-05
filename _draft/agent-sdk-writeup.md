@@ -394,85 +394,172 @@ Three points from this section:
 
 # Part 3 — Bash and the filesystem
 
-## Why code beats tool calls
+## The limits of predefined tools
 
-**The traditional agentic pattern has a cost problem.**
+**In the agentic loop from Part 1, tools define what the agent can do.**
 
-Every tool call requires a full round-trip to the LLM: the model generates a structured request, the system executes it, the result goes back into the context, and the model is called again. For a task that requires ten tool calls, that is ten inference passes — each one reading the entire (growing) context window.
+The agent can only act through the tools you provide. If you give it `search_web`, `read_file`, and `send_email`, those are its capabilities. Nothing more.
 
-**The alternative: write a script, run it once.**
+This creates a constraint: every capability must be anticipated and implemented in advance. Want the agent to compress a file? You need a `compress_file` tool. Want it to resize an image? You need a `resize_image` tool. Want it to check disk space, parse a CSV, or ping a server? Each one requires a tool.
 
-Instead of calling tool 1, returning to the model, calling tool 2, returning to the model, and so on — the model writes a single script that chains multiple operations together. Only the final result comes back.
+**The problem compounds as tasks get more complex.**
 
-This is not a theoretical improvement. Multiple teams arrived at the same conclusion independently:
+Consider an agent that needs to "find all Python files modified this week, check which ones import the requests library, and list their authors from git blame." With predefined tools, you might need:
+- `list_files` with date filtering
+- `read_file` to check imports
+- `git_blame` to get authors
+- Logic to combine the results
 
-- **Manus** (March 2025) adopted the CodeAct approach from a 2024 academic paper ("Executable Code Actions Elicit Better LLM Agents," ICML 2024). The paper found that code-based actions achieved up to 20% higher success rates and required 30% fewer steps than JSON-based tool calls. A typical Manus task requires around 50 tool calls — every one that can be folded into a script is one fewer round-trip through the model.
-- **Cloudflare** (September 2025) coined the term "Code Mode." Kenton Varda and Sunil Pai stated it plainly: "LLMs have seen a lot of code. They have not seen a lot of 'tool calls'." They converted MCP tools into a TypeScript API and asked the LLM to write code that calls it — and found agents handled more tools, and more complex tools, when those tools were presented as code rather than as tool definitions.
-- **Anthropic** (November 2025) published "Code execution with MCP" with a headline result: token usage dropped from 150,000 to 2,000 — a 98.7% reduction. The agent discovers tools by exploring a filesystem structure, reads only the definitions it needs, and writes code to compose them.
+And if the task changes slightly — "also exclude test files" — you either need a new tool or need to update the existing one.
 
-<!-- TODO: illustration — side-by-side comparison of (left) traditional tool-call flow with multiple round-trips to the LLM, each one growing the context, vs (right) code-execution flow where the model writes a script once, the sandbox runs it, and only the final result returns. Show the token/latency cost difference. -->
+**Every abstraction layer reduces autonomy.**
 
-**Why does code work better than tool calls?**
+The more specific your tools, the more you constrain what the agent can do. Anthropic's guidance on tool design puts it directly: "Too many tools or overlapping tools can distract agents from pursuing efficient strategies." But too few tools, or tools that are too narrow, can prevent the agent from solving the problem at all.
 
-Cloudflare put it simply: LLMs have been trained on billions of lines of real-world code from millions of open-source projects. They have been trained on a tiny, synthetic set of tool-call examples. They are better at writing TypeScript than at formatting JSON tool invocations.
+## Bash as a universal tool
 
-And code is composable. A script can use loops, conditionals, error handling, library imports. A tool call cannot. When an agent needs to "fetch a city ID, then look up the weather for that city, then format the result" — that is one script, not three round-trips.
+**Bash is the Unix shell — a command-line interface that has been around since 1989.**
 
-Mario Zechner (BadLogic, creator of the "pi" coding agent) arrived at the same place from a minimalist direction. His agent has four tools: bash, read, write, edit. No MCP. "As it turns out, these four tools are all you need for an effective coding agent." He pointed out that MCP servers carry significant context overhead — the Playwright MCP server alone uses 13.7k tokens for its 21 tool definitions, eating nearly 7% of Claude's context window before the agent has done anything.
+It is the standard way to interact with Unix-like systems (Linux, macOS). You type commands, the shell executes them, you see the output.
 
-Vercel's experience was the most direct experiment. Their text-to-SQL agent d0 had 17 specialized tools and achieved an 80% success rate. They replaced everything with a single bash tool: 100% success rate, 3.5x faster, 37% fewer tokens. Their conclusion: "The best agents might be the ones with the fewest tools."
+```bash
+# Find Python files modified in the last 7 days
+find . -name "*.py" -mtime -7
 
-## The filesystem as agent memory
+# Check which ones import requests
+grep -l "import requests" $(find . -name "*.py" -mtime -7)
 
-**Files are the simplest form of agent memory — and often the most effective.**
+# Get git blame authors for those files
+for f in $(grep -l "import requests" $(find . -name "*.py" -mtime -7)); do
+  git blame --line-porcelain "$f" | grep "^author " | sort -u
+done
+```
 
-Claude Code reads a file called `CLAUDE.md` at the start of every session. Whatever is in that file becomes part of the model's initial context. OpenAI Codex does the same with `AGENTS.md`. There is no vector database, no embedding pipeline, no semantic search. Just a Markdown file on disk.
+That earlier task — "find Python files modified this week, check which import requests, list their authors" — is three lines of bash.
 
-This pattern extends beyond configuration. In practice, agents use the filesystem for three things:
+**Why does bash matter for agents?**
 
-- **Scratchpad.** Notes, plans, intermediate results, todo lists. The agent writes them to files to offload context from the conversation window.
-- **Artifacts.** Patches, reports, generated code, outputs meant for the user.
-- **Ground truth.** Test results, diffs, lint output — things the agent can verify its work against.
+Because giving an agent bash access is giving it access to the entire Unix environment: file operations, network requests, text processing, program execution, and the ability to combine them in ways you did not anticipate.
 
-**The key property: no predefined schema.**
+Vercel tested this directly. Their observation:
 
-The agent decides what to write, what to name it, how to organize it. A todo list is a Markdown file. A research summary is a text file. Intermediate API results are JSON. There is no schema migration, no database setup. LangChain's analysis explains why this works: "Models today are specifically trained to understand traversing filesystems; the information is often already structured logically; glob and grep allow the agent to isolate specific files, lines, and characters."
+> "With only a bash execution tool, an agent can theoretically accomplish any computational task because bash provides access to the entire UNIX environment."
 
-**And files persist for free.**
+Their experiment: they removed 80% of the specialized tools from their agent, kept only bash, and performance improved. Their conclusion: "The best agents might be the ones with the fewest tools."
 
-When a coding agent creates a plan file or updates `CLAUDE.md`, that information is available to the next session simply because the file is still on disk. No persistence infrastructure required. Claude Code layers this into a tiered system: `CLAUDE.md` for high-level project context, `.claude/rules/` for organized instructions, scratchpad directories for session-specific notes. Manus takes a similar approach — writing intermediate results to files in a sandbox VM and loading only summaries into context.
+**The Unix philosophy aligns with how LLMs work.**
+
+Unix was designed around small tools that do one thing well, connected by text streams. An LLM is, in a sense, exactly the user Unix was designed for — it can read documentation, reason about commands, and compose small operations into larger workflows.
+
+Claude Code's creators described watching the agent explore a codebase:
+
+> "Claude exploring the filesystem was mindblowing...it would read one file, look at the imports, then read files defined in imports."
+
+No tool predicted this behavior. The agent used basic primitives — read, list, search — and composed them into an investigation strategy.
+
+<!-- TODO: illustration — contrast between (left) an agent with many predefined tools, each a narrow capability, vs (right) an agent with bash, which can compose arbitrary operations. Show the same task accomplished both ways. -->
+
+## The filesystem as universal persistence
+
+**The same constraint applies to storage.**
+
+In the agentic loop, if the agent needs to persist something — an intermediate result, a plan, an artifact — it needs a tool to do so. And that tool's schema defines what can be stored.
+
+If you provide a `save_note(title, content)` tool, the agent can save text notes. But what if it needs to save an image? A JSON structure? A binary file? A directory of related files?
+
+**Traditional approaches fragment state.**
+
+Databases require schemas. Key-value stores require string values. Logging systems capture events but not artifacts. Each storage mechanism has its own interface, its own constraints, its own limitations.
+
+**The filesystem has no predefined schema.**
+
+A file can contain anything: Markdown, JSON, images, binaries, code. A directory can organize files however makes sense. The agent decides what to write, what to name it, how to structure it.
+
+Manus describes their approach:
+
+> "File System as Extended Memory: The approach treats filesystem storage as 'unlimited in size, persistent by nature, and directly operable by the agent itself.'"
+
+Claude Code uses this in practice. A `CLAUDE.md` file at the project root contains high-level context:
+
+```markdown
+# CLAUDE.md
+
+## Project overview
+This is a REST API built with FastAPI. The main entry point is src/main.py.
+
+## Commands
+- Run tests: pytest tests/
+- Start server: uvicorn src.main:app --reload
+```
+
+A scratchpad directory holds session-specific notes:
+
+```markdown
+# scratchpad/plan.md
+
+## Current task: Fix authentication bug
+
+### What I know
+- Tests failing in tests/test_auth.py
+- Error: "Token expired" even for fresh tokens
+
+### Investigation steps
+1. [x] Read the failing test
+2. [x] Read the token validation code
+3. [ ] Check timezone handling in token creation
+```
+
+**Files persist for free.**
+
+When the agent creates a plan file, that information is available to the next session simply because the file is still on disk. No persistence infrastructure required. No schema migration. No database setup.
 
 This is "dumb" persistence that works precisely because the agent is smart enough to manage it.
 
+## A note on code execution
+
+**Bash access enables a further optimization: writing scripts instead of making tool calls.**
+
+Remember the two-step pattern from Part 1: the model requests a tool call, the system executes it, the result feeds back. For a task requiring ten tool calls, that is ten inference passes — each one reading the entire (growing) context.
+
+With bash, the agent can write a script that chains multiple operations together. Only the final result comes back.
+
+Anthropic measured this directly: token usage dropped from 150,000 to 2,000 — a 98.7% reduction. The CodeAct research paper (ICML 2024) found code-based actions achieved up to 20% higher success rates than JSON-based tool calls.
+
+The reason is straightforward: LLMs have been trained on billions of lines of real-world code. They have been trained on a tiny, synthetic set of tool-call examples. They are better at writing bash or Python than at formatting JSON tool invocations.
+
 ## What this means for architecture
 
-**Not all runtimes have a filesystem.**
+**Not all runtimes have a filesystem or a shell.**
 
-The bash-and-files pattern implicitly requires a runtime that can execute processes, write to disk, and maintain a working directory. Many modern deployment environments do not provide this.
+| Runtime | Filesystem | Shell | Persistent state |
+|---------|------------|-------|------------------|
+| Your laptop | ✓ | ✓ | ✓ |
+| VPS / VM | ✓ | ✓ | ✓ |
+| Container (long-running) | ✓ | ✓ | Within session |
+| AWS Lambda | Limited | No | No |
+| Cloudflare Workers | No | No | No |
+| Edge functions | No | No | No |
 
-- **Cloudflare Workers** use a totally empty filesystem and block all filesystem-related system calls via seccomp. No file access, no process spawning.
-- **AWS Lambda** and serverless functions are designed for stateless, short-lived invocations — no persistent state, minimal local resources.
-- **Edge functions** impose even stricter limits: no filesystem, no persistent memory between requests.
-
-**What breaks is specific:**
-- Agents that rely on file-based memory (`CLAUDE.md`, `AGENTS.md`, scratchpad files) cannot function.
-- The "write a script, run it" pattern requires both a filesystem and a shell.
-- Cross-step context retention is impossible without external state management.
-- As The New Stack put it: "AI agents do not operate in milliseconds. They work across sequences of steps, referring to past context, creating intermediate files, running validations, calling multiple tools and returning to tasks over extended periods."
+**What breaks without these primitives:**
+- Agents cannot compose arbitrary operations — they are limited to predefined tools.
+- Agents cannot persist intermediate results flexibly — they are limited to predefined schemas.
+- The optimizations from code execution are unavailable.
 
 **The workaround is always the same: give the agent a full machine.**
 
 Cloudflare built the Sandbox SDK on top of Containers — each sandbox runs in its own isolated container with a full Linux environment. Manus uses E2B (Firecracker microVMs) — ephemeral, lightweight virtual machines with full filesystem access. OpenAI Codex runs each task in its own cloud sandbox, preloaded with the repository.
 
-The pattern is consistent: when the runtime does not provide a filesystem and a shell, you give the agent a VM or container that does.
+> **The core unit of compute is no longer a micro-invocation — it is a session.**
 
-The New Stack captured the architectural implication: "The core unit of compute is no longer a micro-invocation — it is a session." The assumptions that made serverless attractive — stateless, ephemeral, sub-second — are exactly the assumptions agents violate.
+The assumptions that made serverless attractive — stateless, ephemeral, sub-second — are exactly the assumptions agents violate.
 
 <!-- TODO: illustration — a spectrum of runtime environments from left (serverless/edge: no filesystem, no shell, stateless) to right (full VM/container: persistent filesystem, shell, long-lived session). Show which agent capabilities are available at each point on the spectrum. -->
 
 ## A note on security
 
-A shell is an extremely powerful tool surface. One command can modify or destroy large parts of a system. Credentials in environment variables or files can be exfiltrated. Small allowlists can be bypassed via composition — pipes, redirection, subshells.
+**Bash is an extremely powerful tool surface.**
+
+One command can modify or destroy large parts of a system. Credentials in environment variables or files can be exfiltrated. Small allowlists can be bypassed via composition — pipes, redirection, subshells.
 
 The mitigations are well-understood:
 - Sandboxing and isolation (container, VM, or platform-level enforcement).
@@ -486,50 +573,52 @@ Security is not a reason to avoid the pattern. It is a reason to invest in the h
 
 Three points from this section:
 
-- **Code beats tool calls for multi-step work.** Writing a script that chains operations is faster, cheaper, and often more reliable than making individual tool calls — because LLMs are better at writing code than at formatting tool invocations, and because each round-trip you eliminate saves an inference pass over the full context.
-- **The filesystem is the simplest agent memory.** No schema, no database, no embedding pipeline. Files persist across sessions for free, and agents are already trained to navigate directories with standard tools. The pattern is dominant in production: `CLAUDE.md`, `AGENTS.md`, scratchpad files, artifact directories.
+- **Bash is a universal tool.** Instead of anticipating every capability and implementing a specific tool, you give the agent access to the Unix environment. It can compose arbitrary operations from basic primitives — and LLMs are already trained on how to do this.
+- **The filesystem is universal persistence.** Instead of defining schemas for what the agent can store, you give it a directory. It can write any file type, organize however makes sense, and the files persist across sessions for free.
 - **This has architectural consequences.** Bash and filesystem access require a runtime that supports them. Serverless and edge environments do not. The workaround — containers, VMs, sandboxes — represents a shift from "functions as units of compute" to "sessions as units of compute."
 
 
 # Part 4 — The service boundary
 
-## What is a service boundary?
+## Libraries and services
 
-**The term comes from distributed systems.**
+**The same capability can be packaged two ways.**
 
-A service boundary is the line between "code I call directly" and "code I call over the network."
+Think of any software component — a database, an image processor, an agent loop. You can deliver it as:
 
-When you import a library and call a function — no service boundary. The code runs in your process, on your machine.
+1. **A library (embedded).** The capability runs inside your application's process. You call it with a function call. When your process ends, it ends.
 
-When you make an HTTP request to an API — service boundary. The code runs somewhere else. You communicate over the network.
+2. **A service (hosted).** The capability runs in a separate process — maybe on the same machine, maybe remote. You call it with messages over some protocol. It can outlive your connection.
+
+The distinction is not "desktop vs server" or "local vs cloud." It is:
+
+> Is this capability called by function calls in the same process, or by messages across a process boundary?
+
+That process boundary is the **service boundary**.
+
+**A familiar example: databases.**
+
+SQLite is embedded. Your application links the library, calls functions directly. No service boundary. When your app exits, SQLite exits.
+
+PostgreSQL is hosted. It runs as a separate server process. Your application connects over a socket, sends SQL as messages, receives results. Service boundary. PostgreSQL keeps running after your app disconnects.
+
+Same domain (relational database), two packaging modes.
 
 **Why does this matter for agents?**
 
-Because crossing a service boundary changes everything about lifecycle and state:
-- Without a boundary: when your process ends, the agent ends
-- With a boundary: the agent can keep running after you disconnect
+Because the Claude Agent SDK is a library. It gives you the agent loop — but it runs in your process, with your lifecycle. If you want something like ChatGPT or Claude.ai — where you can close your browser, come back later, and the agent is still there — you need to cross a service boundary.
 
-<!-- TODO: illustration — two diagrams side by side. Left: "No service boundary" showing user → function call → agent loop → result, all in one box labeled "same process". Right: "Service boundary" showing user → HTTP/WebSocket → [boundary line] → server → agent loop, with the boundary line clearly marked. -->
+<!-- TODO: illustration — two diagrams side by side. Left: "Library (embedded)" showing app → function call → agent loop → result, all in one box labeled "same process". Right: "Service (hosted)" showing client → HTTP/WebSocket → [boundary line] → server → agent loop, with the boundary line clearly marked. -->
 
-## From Claude Code to Claude Agent SDK
+## Service boundaries by example
 
 **Start with what you know: Claude Code on your laptop.**
 
 You type a command. The agent runs. You see the output. When you close your terminal, the agent is gone.
 
-No service boundary here. The agent runs in the same place as you — same machine, same process, same lifecycle.
+This is embedded mode. The agent runs in the same process as the CLI. No service boundary.
 
-**The first step beyond this is programmatic access.**
-
-Claude Code is interactive — you type, it responds. The Claude Agent SDK (and similarly, py-sdk for Python-native development) exposes the same capabilities as a library. Same engine, different interface.
-
-Why would you want this?
-- **Automation.** Run the agent without human interaction.
-- **Integration.** Embed agent capabilities in your own application.
-- **Custom tools.** Add domain-specific tools via MCP or SDK hooks.
-- **Structured output.** Get machine-readable results instead of terminal text.
-
-A simple example — a script that runs locally:
+**The Claude Agent SDK exposes the same engine as a library.**
 
 ```python
 from claude_agent_sdk import query
@@ -541,19 +630,21 @@ async for message in query(
     print(message)
 ```
 
-This still runs on your laptop. No service boundary — you call a function, the agent runs, you get a result.
+This still runs on your laptop, in your script's process. You call a function, the agent runs, you get a result. Still embedded, still no service boundary.
 
-## Running the agent elsewhere
+Why would you want this?
+- **Automation.** Run the agent without human interaction.
+- **Integration.** Embed agent capabilities in your own application.
+- **Custom tools.** Add domain-specific tools via MCP or SDK hooks.
+- **Structured output.** Get machine-readable results instead of terminal text.
 
-**The next step: run the agent on a different machine, triggered by an event.**
+**Next: run the agent elsewhere, triggered by an event.**
 
-GitHub Actions is a good example. You can run Claude Agent SDK in a CI job — when a PR is opened, the agent runs tests, analyzes code, or generates documentation. The job container is ephemeral (destroyed after the job ends), but that's fine for one-shot automation.
+GitHub Actions is a good example. You run Claude Agent SDK in a CI job — when a PR is opened, the agent runs tests, analyzes code, or generates documentation. The job container is ephemeral (destroyed after the job ends), but that is fine for one-shot automation.
 
-Still no service boundary in the traditional sense. The agent runs, produces output, exits. You're not connecting to it — you're triggering it.
+Still no service boundary in the traditional sense. The agent runs, produces output, exits. You are not connecting to it — you are triggering it.
 
-## Crossing the service boundary
-
-**Now imagine you want something like ChatGPT or Claude.ai — for yourself.**
+**Now: something like ChatGPT or Claude.ai — for yourself.**
 
 The requirements change:
 - Access from anywhere, not just your laptop or a CI job
@@ -561,33 +652,39 @@ The requirements change:
 - See the agent's progress in real-time as it works
 - Maybe multiple people connecting to the same conversation
 
-This is what it means to put an agent *behind a service boundary*. The agent runs somewhere else. You connect to it over the network. The agent's lifecycle is decoupled from yours.
+This is when you cross the service boundary. The agent runs in a separate process. You connect to it over the network. The agent's lifecycle is decoupled from yours.
 
-**You can't just put Claude Agent SDK on a server and call it done.**
+**You cannot just put the SDK on a server and call it done.**
 
-The SDK gives you the agent loop — the core engine. But to make it usable behind a service boundary, you need layers around it:
-- A way to receive requests (transport)
-- A way to find the right conversation (routing)
-- A way to keep state between requests (persistence)
-- Rules for what happens when the client disconnects (lifecycle)
+The SDK gives you the agent loop — the core engine. But turning a library into a service changes what you need to provide:
 
-This is where the choice between SDK-first and server-first matters.
+| Library (embedded) | Service (hosted) |
+|-------------------|------------------|
+| Function calls | Protocol/API design |
+| Simplest deployment (one process) | Process lifecycle (start/stop/health) |
+| One process, one debugger | Distributed debugging |
+| No network failure modes | Timeouts, retries, partial failures |
+| — | Auth/security boundaries |
+| — | API versioning |
 
-## The onion model: SDK-first vs server-first
+You run it as a service **only when you need the benefits of a separate host process** — multiple clients, isolation, independent updates — not because it is "more correct."
+
+## The onion model
 
 **Think of it like layers of an onion.**
 
-At the core is the agent loop — the LLM, tools, and the loop that connects them. Both Claude Agent SDK and py-sdk give you this core.
+At the core is the agent loop — the LLM, tools, and the loop that connects them. The Claude Agent SDK (TypeScript) and py-sdk (Python) give you this core.
 
-Around the core are the service layers:
-- Transport (HTTP, WebSocket, SSE)
-- Routing (session IDs, request → process mapping)
-- Persistence (messages, artifacts, state)
-- Lifecycle management (background continuation, disconnection handling)
+Around the core are the service layers — what you build to turn the library into something usable behind a service boundary:
+
+- **Transport.** How client and server communicate: HTTP request/response, HTTP + SSE (streaming), or WebSocket (bidirectional).
+- **Routing.** Finding the right conversation: session IDs, request → process mapping.
+- **Persistence.** Keeping state between requests: messages, artifacts, traces.
+- **Lifecycle.** What happens when the client disconnects: stop immediately, keep running, or timeout after a grace period.
 
 <!-- TODO: illustration — concentric circles (onion diagram). Inner circle: "Agent loop (Claude Agent SDK, py-sdk)". Next ring: "Session management". Next ring: "Transport (HTTP/WS)". Next ring: "Routing". Outer ring: "Persistence, lifecycle". Label the whole thing: "What you build with SDK-first". Then show OpenCode as a pre-assembled version with all layers included. -->
 
-**SDK-first (Claude Agent SDK, py-sdk): you build the layers.**
+**SDK-first: you build the layers.**
 
 The SDK gives you:
 - The agent loop
@@ -611,53 +708,25 @@ The trade-off:
 - **SDK-first** gives you control but requires more work
 - **Server-first** gives you structure but less flexibility
 
-## What the layers do
-
-**Transport: how client and agent communicate.**
-
-Options, from simple to complex:
-- **HTTP request/response** — send a request, wait for the full response. No streaming.
-- **HTTP + SSE (Server-Sent Events)** — send a request, receive a stream of events. Shows progress.
-- **WebSocket** — bidirectional, real-time. Client and server can send messages anytime.
-
-Claude in the Box, a minimal example, uses HTTP + SSE. It accepts a POST, spins up a sandbox, runs the agent, and streams stdout back.
-
-Authentication sits on top of transport — API keys, JWTs, OAuth. Standard web infrastructure.
-
-**Routing: finding the right conversation.**
-
-If users can have multiple conversations, you need session IDs. If the agent runs in a specific container, you need to route requests to the right one.
-
-**Persistence: keeping state between requests.**
+**A note on persistence.**
 
 If your runtime persists (VPS, long-running container, VM snapshots), the runtime *is* your persistence. The Claude Agent SDK saves sessions to disk automatically.
 
-If your runtime is ephemeral (serverless, fresh container per request), you need to explicitly save:
-- **Messages** — conversation history
-- **Artifacts** — files the agent created
-- **Optionally, traces** — tool calls and results
+If your runtime is ephemeral (serverless, fresh container per request), you need to explicitly save messages, artifacts, and optionally traces. When the user returns, you load the state back into the SDK.
 
-When the user returns, you load the state back into the SDK. No special "reconstruction" — just load and continue.
+**A note on lifecycle.**
 
-**Lifecycle: what happens when the client disconnects?**
+The expectation for a ChatGPT-like experience: the agent keeps running in the background. Close the tab, come back later, results are waiting.
 
-The expectation for a ChatGPT-like experience: the agent keeps running in the background.
-
-This requires infrastructure:
-- The agent process must outlive the client connection
-- You need a way to reconnect and see what happened
-- You need to decide: stop immediately, keep running, or timeout after a grace period?
-
-Ramp's architecture handles this explicitly. Users can queue follow-up prompts while the agent works. Close the tab, the agent keeps going. Results are waiting when you return.
+This requires infrastructure: the agent process must outlive the client connection, you need a way to reconnect and see what happened, you need policies for timeouts.
 
 If you choose "stop immediately," implementation is simpler — no background process management. But the UX is different.
 
 ## What to keep in mind
 
-- **The progression is real.** Claude Code → Claude Agent SDK/py-sdk → behind a service boundary. Each step adds complexity. You don't need to jump to the end.
-- **OpenCode is the SDK with layers pre-built.** If you want server-first, start there. If you want control, build on Claude Agent SDK or py-sdk.
-- **The key question is: does your runtime persist?** If yes, state management is largely handled. If no, you save messages and artifacts explicitly.
-- **Background continuation requires infrastructure.** Decide early: should the agent keep running when the client disconnects? The answer shapes your architecture.
+- **Library vs service is the fundamental question.** The same capability — the agent loop — can run embedded (in your process) or hosted (behind a service boundary). The choice depends on whether you need independent lifecycle, multiple clients, or remote access.
+- **The progression is real.** Claude Code → Claude Agent SDK → behind a service boundary. Each step adds complexity. You do not need to jump to the end.
+- **The onion model clarifies what you build.** The SDK gives you the core. Transport, routing, persistence, and lifecycle are the layers you add — or get pre-built from something like OpenCode.
 
 
 # Part 5 — Where can it run? Environment constraints without ideology
@@ -692,3 +761,69 @@ Current structure:
 - (6) Capstone → Part 6 (outline)
 
 If you want, we can add a small "Where are we on the 2×2?" callout box at the start/end of each part so the diagram is an index, not just an illustration.
+
+---
+
+## Bibliography
+
+### Foundational
+
+- **Anthropic — Building Effective Agents** (2024)
+  The canonical overview of agent patterns: prompt chaining, routing, parallelization, orchestrator-workers, evaluator-optimizer. Introduces the progression from workflows to autonomous agents.
+  https://www.anthropic.com/research/building-effective-agents
+
+- **CodeAct: Executable Code Actions Elicit Better LLM Agents** (ICML 2024)
+  The academic paper behind the "code beats tool calls" observation. Found up to 20% higher success rates with code-based actions versus JSON tool calls across 17 LLMs.
+  https://arxiv.org/abs/2402.01030
+
+- **Unix Was a Love Letter to Agents** — Vivek Haldar
+  Argues that the Unix philosophy — small tools, text interfaces, composition — aligns perfectly with how LLMs work. "An LLM is exactly the user Unix was designed for."
+  https://vivekhaldar.com/articles/unix-love-letter-to-agents/
+
+### Bash and code execution
+
+- **Vercel — Testing if "bash is all you need"**
+  Direct experiment: removed 80% of specialized tools, kept only bash, performance improved. "With only a bash execution tool, an agent can theoretically accomplish any computational task."
+  https://vercel.com/blog/testing-if-bash-is-all-you-need
+
+- **Cloudflare — Code Mode**
+  Converted MCP tools into a TypeScript API and had agents write code to call it. "LLMs have seen a lot of code. They have not seen a lot of 'tool calls'."
+  https://blog.cloudflare.com/code-mode/
+
+- **Anthropic — Code execution with MCP**
+  Measured 98.7% token reduction (150k → 2k) by having agents discover tools via filesystem exploration and compose them with code.
+  https://www.anthropic.com/engineering/code-execution-with-mcp
+
+### Filesystem and memory
+
+- **Manus — Context Engineering for AI Agents**
+  Describes their approach to filesystem as extended memory: "unlimited in size, persistent by nature, and directly operable by the agent itself." Details todo.md patterns for maintaining state across ~50-tool-call sequences.
+  https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus
+
+- **From "Everything is a File" to "Files Are All You Need"** (arXiv 2025)
+  Academic paper arguing that Unix's 1970s design principles apply directly to autonomous AI systems. Cites Jerry Liu: "Agents need only ~5-10 tools: CLI over filesystem, code interpreter, web fetch."
+  https://arxiv.org/html/2601.11672
+
+### Architecture and implementation
+
+- **How Claude Code is built** — Pragmatic Engineer
+  Deep dive into Claude Code's architecture. "Claude Code embraces radical simplicity. The team deliberately minimizes business logic, allowing the underlying model to perform most work."
+  https://newsletter.pragmaticengineer.com/p/how-claude-code-is-built
+
+- **Anthropic — Writing effective tools for agents**
+  Guidance on tool design: "More tools don't always lead to better outcomes. Rather than wrapping every API endpoint into a tool, developers should build a few thoughtful tools."
+  https://www.anthropic.com/engineering/writing-tools-for-agents
+
+- **LangGraph — Thinking in LangGraph**
+  The mental model behind app-driven orchestration: explicit graphs, state machines, and developer-defined control flow. Includes the email-triage workflow example.
+  https://langchain-ai.github.io/langgraph/concepts/
+
+### Runtime and infrastructure
+
+- **Turso — AgentFS: The Missing Abstraction**
+  Argues for treating agent state like a filesystem but implementing it as a database. "Traditional approaches fragment state across multiple tools—databases, logging systems, file storage, and version control."
+  https://turso.tech/blog/agentfs
+
+- **The New Stack — AI Agents and the Return of Stateful Compute**
+  "AI agents do not operate in milliseconds. They work across sequences of steps, referring to past context, creating intermediate files, running validations." Argues the core unit of compute is now a session, not an invocation.
+  https://thenewstack.io/ai-agents-and-the-return-of-stateful-compute/
