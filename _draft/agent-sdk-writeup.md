@@ -392,104 +392,7 @@ Three points from this section:
 - **The harness is not optional for agent-driven systems.** When the agent self-orchestrates, the harness — policies, permissions, tools, modes, hooks — is what keeps it reliable. This is the infrastructure that separates a toy demo from a production system.
 
 
-# Part 3 — Agent as feature / Agent as the app
-
-## 3.1 Scenario ladder
-
-### A0 — In‑app Agent
-
-**User story:** "The agent is a feature inside a specific app boundary."
-
-- Runs inside the app's runtime boundary (same process, same machine, or the same job/container boundary).
-- If that runtime boundary ends, the agent ends with it.
-- You don't *attach* to it from elsewhere; you *use the feature* where it runs.
-
-**Examples (illustrative):**
-
-- A local CLI agent running on your laptop.
-- A GitHub Action/CI job that runs an agent inside the single job container (it dies with the job).
-
-### S1 — Job-running Agent
-
-**User story:** "I send a request to an agent running elsewhere and get output."
-
-- Runs in another process/service boundary.
-- Output can be returned all‑at‑once or streamed (optionally you can store the output of the process in a DB (Claude-in-the-box)
-- You can't have a back-and-forth with the agent.
-- If you disconnect, you can't reattach to the same run; the run is typically short‑lived.
-- Ephemeral & Stateless agent
-
-### S2 — Interactive Agent
-
-**User story:** "I can go back‑and‑forth with the agent while it's running."
-
-- Multiple turns while connected.
-- Once you disconnect the agent and the conversation cannot be reloaded / reconnected to
-- Ephemeral & Stateful  (conversation)
-
-### S3 — Resumable / Durable Agent
-
-**User story:** "I can leave and come back later, and  pick up  where we left off."
-
-This scenario is **a matter of degree** along (at least) two axes:
-
-- **State you can resume with** (from minimal to rich):
-
-  - **Conversation history** (messages + key decisions/notes).
-  - **Artifacts** (stored outputs you care about: reports, patches, extracted data).
-  - **Trace** (a record of tool calls and results/observations, including what happened since your last turn, so the system can rebuild context and avoid re-running side‑effectful steps).
-
-At this level, the system makes a stronger promise: **you can leave and later continue** with whatever state it chose to persist.
-
-### S4 — Multi‑client Agent
-
-**User story:** "Multiple clients (or people/devices) can connect to the same agent."
-
-- Multiple attachments to the same session/run.
-- Clear rules for who can send input and how conflicts are handled.
-
----
-
-## 3.2 What you add when you climb the ladder
-
-### A0 → S1: make it callable from elsewhere
-
-- **Remote invocation surface:** an API endpoint/command channel that accepts input and returns output.
-- **Output delivery:** choose **single response** vs **streamed output** (progress/logs or incremental result).
-- **Remote runtime packaging:** define what environment the agent has (tools, filesystem, credentials) in that remote boundary.
-- **Run boundary definition:** define what "one run" is and what is cleaned up at the end.
-
-### S1 → S2: add live back‑and‑forth
-
-- **Bidirectional messaging:** ability for the client to send additional turns *while the run is live* (not just one POST).
-- **Run/session routing:** turn #2 must be routed to the **same live run** (not spawn a fresh run).
-- **Live state retention during connection:** keep the run alive across turns while at least one client is connected.
-
-### S2 → S3: add resumability (and, by degree, durability)
-
-- **Session identity:** introduce a durable ID for "this conversation / workspace" so a client can later target the same session.
-
-- **State persistence (what survives):** choose how much state you store, from minimal to rich:
-  - **Conversation history:** messages + key decisions/notes needed to continue.
-  - **Artifacts:** stored outputs you care about later (files, patches, reports).
-  - **Trace:** a record of tool calls and results/observations (across the session, including what happened since your last turn) so the system can rebuild context and avoid re-running side‑effectful steps.
-
-- **Context reconstruction:** the ability to rebuild the *next model input* from persisted state (conversation + optional artifacts/trace), often with summarization/compaction.
-
-- **Background continuation:** define what happens when no client is connected.
-  - stop when the client disconnects
-  - keep running for a grace period (TTL/keep‑warm)
-  - run to completion in the background
-  - plus stop/cancel/budget rules
-
-### S3 → S4: add multiple attachments
-
-- **Multi‑subscriber output:** broadcast the same run/session outputs to multiple connected clients.
-- **Input coordination model:** define single‑controller vs queued multi‑writer vs forked sessions; guarantee ordering.
-- **Attach semantics:** new client can join live tail and/or request catch‑up replay.
-
-
-# Part 5 — Bash and the filesystem
+# Part 3 — Bash and the filesystem
 
 ## Why code beats tool calls
 
@@ -588,14 +491,156 @@ Three points from this section:
 - **This has architectural consequences.** Bash and filesystem access require a runtime that supports them. Serverless and edge environments do not. The workaround — containers, VMs, sandboxes — represents a shift from "functions as units of compute" to "sessions as units of compute."
 
 
-# Part 6 — Where can it run? Environment constraints without ideology
+# Part 4 — The service boundary
+
+**The vertical axis on our 2×2 map asks: where does the agent run relative to the user?**
+
+On one side, the agent runs *within* the same boundary as your code — same process, same machine, same container. You call a function, the agent runs, you get a result. When your process ends, the agent ends.
+
+On the other side, the agent runs *behind a service boundary* — a separate process, a separate machine, an API you call over the network. The agent's lifecycle is decoupled from yours.
+
+This is the difference between using a library and calling a server.
+
+## The two sides
+
+**Within the boundary: agent as library.**
+
+Claude Code running on your laptop. An agent in a GitHub Actions job. A PydanticAI agent called from your FastAPI endpoint. In all these cases, the agent runs in the same runtime as your code. You import a module, call a function, iterate over results. When your script exits or your container dies, the agent is gone.
+
+The Claude Agent SDK, PydanticAI, and Vercel AI SDK are all designed for this mode. They give you a function you call. What happens around that function — the HTTP server, the persistence, the authentication — is your responsibility.
+
+**Behind the boundary: agent as service.**
+
+ChatGPT. Claude.ai. Ramp's Inspect agent. In these cases, the agent runs somewhere else. You connect to it over HTTP or WebSocket. You can close your browser and come back later. Multiple people might connect to the same conversation. The agent might keep working while you're away.
+
+When you put an agent behind a service boundary, you take on new responsibilities. The exact responsibilities depend on what kind of experience you want to provide — and critically, on whether your runtime persists.
+
+## What changes when you cross the boundary
+
+**The minimum: transport and invocation.**
+
+At the very least, you need a way to send requests to the agent and receive responses. This is the transport layer. Options range from simple to complex:
+
+- **HTTP request/response** — client sends a request, waits for the full response. Simple, but no streaming.
+- **HTTP + Server-Sent Events (SSE)** — client sends a request, server streams the response back as events. Good for showing progress and partial results.
+- **WebSocket** — bidirectional connection. Client and server can send messages at any time. Required for true real-time interaction.
+
+Claude in the Box, the minimal example, uses HTTP + SSE. It accepts a POST request, spins up a sandbox, runs the agent, and streams stdout back as the response. That's the absolute minimum: accept request, run agent, stream output.
+
+**Beyond minimum: it depends on your runtime.**
+
+Here is where the conditional logic kicks in. What else you need to build depends on one question: **does your runtime persist between requests?**
+
+## When the runtime persists
+
+**If your agent runs on a VPS, a dedicated server, or a long-running container — the runtime persists.**
+
+The process stays alive between requests. Files on disk remain. Conversation history stays in memory (or in session files the SDK manages). When the user sends their next message, the agent is still there, still has context, still has the files it created.
+
+In this case, you don't need to build persistence infrastructure. The runtime *is* your persistence. The Claude Agent SDK, for example, saves sessions to disk by default (`~/.claude/projects/`). As long as the process keeps running and the disk stays around, you can resume where you left off.
+
+Modal's sandbox snapshots work this way too. Ramp uses Modal to freeze and restore the entire VM state — not just files, but running processes. When a user returns, the sandbox is restored from snapshot. From the agent's perspective, no time has passed.
+
+**What you still need:**
+- Transport (HTTP/WebSocket server)
+- Routing (direct requests to the right session/conversation)
+- Maybe authentication
+
+**What you don't need to build:**
+- State persistence (the runtime handles it)
+- Context reconstruction (context was never lost)
+
+## When the runtime is ephemeral
+
+**If your agent runs in a serverless function, a fresh container per request, or a sandbox that's destroyed after each run — the runtime is ephemeral.**
+
+Everything is lost when the request ends. Memory, files, conversation history — all gone. The next request starts from zero.
+
+In this case, you must explicitly persist what matters. And when the user returns, you must reconstruct the context from what you saved.
+
+**What to persist:**
+
+- **Messages.** The conversation history — what the user said, what the agent said. Without this, you can't continue a conversation.
+- **Artifacts.** Files the agent created or modified — patches, reports, extracted data. These are the outputs the user cares about.
+- **Traces** (optional but valuable). A record of tool calls and their results. This lets you avoid re-running side effects (don't send the same email twice) and helps the agent understand what already happened.
+
+Where you persist depends on your architecture. A database is the obvious choice. But simpler options exist: Cloudflare's moltworker project mounts an R2 bucket (object storage) as a filesystem using s3fs. Files written to that mount point survive container destruction. It's a hybrid — ephemeral runtime, but persistent filesystem.
+
+**Context reconstruction — only when context is lost.**
+
+When the user returns and you spin up a fresh runtime, you need to rebuild the model's context from persisted state. This is context reconstruction.
+
+The challenge: you probably can't fit everything back in. A long conversation with many tool calls might exceed the model's context window. So you summarize, compact, or selectively include only what's relevant.
+
+This is non-trivial. It's why resumability is harder than it sounds. The Claude Agent SDK handles some of this automatically for local sessions. But when you're building a service with ephemeral runtimes, you own this problem.
+
+## Background continuation
+
+**What happens when the client disconnects?**
+
+If the runtime persists, you have options:
+- **Stop immediately.** The agent waits for the next user message.
+- **Keep running.** The agent continues working on the current task. When the user returns, they see the results.
+- **Run with a timeout.** Keep going for a grace period (10 minutes, an hour), then stop.
+
+If the runtime is ephemeral, the question is moot — the container is destroyed anyway. Unless you're using something like Cloudflare's Durable Objects with WebSocket hibernation, which keeps the connection "alive" even while the underlying compute is evicted.
+
+Ramp's architecture handles this explicitly. Users can queue follow-up prompts while the agent is working. The agent processes them sequentially. If the user closes the tab, the agent keeps going. Results are waiting when they return.
+
+## A concrete comparison
+
+| Aspect | Claude Code (local) | GitHub Actions | Claude in the Box | Ramp Inspect |
+|--------|---------------------|----------------|-------------------|--------------|
+| **Boundary** | Within (same machine) | Within (same job) | Behind (HTTP API) | Behind (HTTP/WS API) |
+| **Runtime** | Persists (your laptop) | Ephemeral (job container) | Ephemeral (sandbox per request) | Ephemeral + snapshots |
+| **Persistence** | SDK handles (disk) | GitHub handles (comments) | None (stateless) | Modal snapshots + Cloudflare DO |
+| **Context reconstruction** | Not needed | Not needed (GitHub is context) | Not needed (no multi-turn) | Snapshot restore |
+| **Multi-turn** | Yes | Yes (via comment threads) | No | Yes |
+
+Notice how GitHub Actions sidesteps the persistence problem entirely. The job container is ephemeral, but conversation history lives in GitHub's comment threads. GitHub *is* the persistence layer. The agent doesn't need to remember — it reads the issue or PR each time.
+
+## What the SDKs give you (and what they don't)
+
+**Claude Agent SDK** gives you:
+- Session management with automatic disk persistence
+- Conversation history tracking
+- File checkpointing (track and revert changes)
+- Session forking (branch a conversation)
+
+It does *not* give you:
+- HTTP/WebSocket server
+- Container orchestration
+- Authentication
+- Database integration
+
+**PydanticAI** gives you:
+- Type-safe agent definitions
+- Message history passing between agents
+- Multi-model support
+
+It does *not* give you:
+- Session persistence (you implement with a database)
+- Transport layer (you add FastAPI or similar)
+- Sandboxing
+
+The pattern is consistent: the SDKs handle the agent loop. Everything around the agent loop — the service boundary concerns — is yours to build.
+
+## What to keep in mind
+
+- **The question is: does your runtime persist?** If yes, persistence is handled. If no, you need to explicitly save messages, artifacts, and optionally traces.
+- **Context reconstruction is conditional.** You only need it when context is lost — i.e., when the runtime is ephemeral and you're resuming a conversation on a fresh instance.
+- **GitHub Actions shows a clever shortcut.** If your platform already has persistence (comment threads, issue bodies, PR descriptions), you can piggyback on it instead of building your own.
+- **The SDKs handle the agent loop. The service boundary is yours.** Transport, routing, authentication, persistence — these are your responsibility when you move from library to server.
+
+
+# Part 5 — Where can it run? Environment constraints without ideology
 
 **Main question:** What host capabilities decide whether an agent system fits in local, server, container, or serverless?
 
 - The practical checklist (workspace/FS, subprocess/shell, long-lived process, network access).
 - Explain why some SDKs “assume Bash” and what breaks without it.
 
-# Part 7 — Capstone: design a schema-editing assistant that finishes
+# Part 6 — Capstone: design a schema-editing assistant that finishes
 
 **Main question:** How do you avoid infinite clarification/repair loops while keeping a good UX?
 
@@ -608,43 +653,15 @@ Three points from this section:
 
 ---
 
-## Note on how this aligns with your original 6-part proposal
+## Note on how this aligns with the original proposal
 
-This keeps the spirit of the initial curriculum:
+Current structure:
 
-- (1) agent vs LLM → Part 1
-- (2) orchestration axis → Part 2
-- (3) service boundary / product shape → Part 3
-- (4) harness → Part 4
-- (5) bash/filesystem assumptions → Part 5
-- (6) where it runs → Part 6
-- (7) capstone → Part 7
+- (1) What's an agent → Part 1
+- (2) Where orchestration lives (+ harness) → Part 2
+- (3) Bash and filesystem → Part 3
+- (4) Service boundary → Part 4
+- (5) Where can it run → Part 5 (outline)
+- (6) Capstone → Part 6 (outline)
 
-If you want, we can add a small “Where are we on the 2×2?” callout box at the start/end of each part so the diagram is an index, not just an illustration.
-
-## Part 6 — Capstone: design a schema-editing assistant that finishes
-
-**Main question:** How do you avoid infinite clarification/repair loops while keeping a good UX?
-
-- A concrete protocol for progress:
-  - patches\_ready + one blocking question + parked assumptions
-  - explicit acceptance stop condition
-- Compare what changes when:
-  - orchestration is app-driven vs agent-driven
-  - agent is a service vs a feature
-
----
-
-## Note on how this aligns with your original 6-part proposal
-
-This keeps the spirit of the initial curriculum:
-
-- (1) agent vs LLM → now Part 1
-- (2) harness → moved to Part 4 (so it can unify both axes)
-- (3) where it runs → Part 5
-- (4) server-first vs SDK-first / service boundary → now Part 3
-- (5) protocol-first vs operator-first → can be woven into Parts 2 & 4
-- (6) capstone → Part 6
-
-If you want, we can add a small “Where are we on the 2×2?” callout box at the start/end of each part so the diagram is an index, not just an illustration.
-
+If you want, we can add a small "Where are we on the 2×2?" callout box at the start/end of each part so the diagram is an index, not just an illustration.
