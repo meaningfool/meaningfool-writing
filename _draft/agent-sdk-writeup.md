@@ -491,26 +491,37 @@ Three points from this section:
 - **This has architectural consequences.** Bash and filesystem access require a runtime that supports them. Serverless and edge environments do not. The workaround — containers, VMs, sandboxes — represents a shift from "functions as units of compute" to "sessions as units of compute."
 
 
-
-
-
-
-
 # Part 4 — The service boundary
+
+## What is a service boundary?
+
+**The term comes from distributed systems.**
+
+A service boundary is the line between "code I call directly" and "code I call over the network."
+
+When you import a library and call a function — no service boundary. The code runs in your process, on your machine.
+
+When you make an HTTP request to an API — service boundary. The code runs somewhere else. You communicate over the network.
+
+**Why does this matter for agents?**
+
+Because crossing a service boundary changes everything about lifecycle and state:
+- Without a boundary: when your process ends, the agent ends
+- With a boundary: the agent can keep running after you disconnect
+
+<!-- TODO: illustration — two diagrams side by side. Left: "No service boundary" showing user → function call → agent loop → result, all in one box labeled "same process". Right: "Service boundary" showing user → HTTP/WebSocket → [boundary line] → server → agent loop, with the boundary line clearly marked. -->
+
+## From Claude Code to Claude Agent SDK
 
 **Start with what you know: Claude Code on your laptop.**
 
 You type a command. The agent runs. You see the output. When you close your terminal, the agent is gone.
 
-This is the simplest case. The agent runs in the same place as you — same machine, same process, same lifecycle. No network, no API, no persistence questions. The Claude Agent SDK handles session state automatically, saving it to disk in `~/.claude/projects/`.
+No service boundary here. The agent runs in the same place as you — same machine, same process, same lifecycle.
 
-**But what if you want more?**
+**The first step beyond this is programmatic access.**
 
-## From Claude Code to Claude Agent SDK
-
-**The first step is programmatic access.**
-
-Claude Code is interactive — you type, it responds. The Claude Agent SDK exposes the same capabilities as a library. Same engine, different interface.
+Claude Code is interactive — you type, it responds. The Claude Agent SDK (and similarly, py-sdk for Python-native development) exposes the same capabilities as a library. Same engine, different interface.
 
 Why would you want this?
 - **Automation.** Run the agent without human interaction.
@@ -518,7 +529,7 @@ Why would you want this?
 - **Custom tools.** Add domain-specific tools via MCP or SDK hooks.
 - **Structured output.** Get machine-readable results instead of terminal text.
 
-A simple example — a script that runs locally on your machine:
+A simple example — a script that runs locally:
 
 ```python
 from claude_agent_sdk import query
@@ -530,19 +541,15 @@ async for message in query(
     print(message)
 ```
 
-This still runs on your laptop. Same boundary — you call a function, the agent runs, you get a result.
+This still runs on your laptop. No service boundary — you call a function, the agent runs, you get a result.
 
-## The GitHub Actions example
+## Running the agent elsewhere
 
-**The next step: run the agent somewhere else, triggered by an event.**
+**The next step: run the agent on a different machine, triggered by an event.**
 
-Claude Code in GitHub Actions is a good illustration. When someone opens a PR or mentions `@claude` in a comment, the agent runs in the job container. It reads the code, makes changes, posts a response.
+GitHub Actions is a good example. You can run Claude Agent SDK in a CI job — when a PR is opened, the agent runs tests, analyzes code, or generates documentation. The job container is ephemeral (destroyed after the job ends), but that's fine for one-shot automation.
 
-Key insight: **the job container is ephemeral — it's destroyed after the job ends.** Yet multi-turn conversation still works. How?
-
-GitHub's comment threads *are* the persistence. The agent doesn't need to remember. It reads the issue or PR at the start of each job. GitHub handles the conversation history. The agent just needs to read it and respond.
-
-This is a pattern worth noting: **if your platform already has persistence, you can piggyback on it.**
+Still no service boundary in the traditional sense. The agent runs, produces output, exits. You're not connecting to it — you're triggering it.
 
 ## Crossing the service boundary
 
@@ -554,96 +561,103 @@ The requirements change:
 - See the agent's progress in real-time as it works
 - Maybe multiple people connecting to the same conversation
 
-This is what it means to put an agent *behind a service boundary*. The agent runs somewhere else. You connect to it over the network.
+This is what it means to put an agent *behind a service boundary*. The agent runs somewhere else. You connect to it over the network. The agent's lifecycle is decoupled from yours.
 
-**What is a service boundary?**
+**You can't just put Claude Agent SDK on a server and call it done.**
 
-The term comes from distributed systems. It's the line between "code I call directly" and "code I call over the network." When you import a library and call a function, there's no service boundary. When you make an HTTP request to an API, there is.
+The SDK gives you the agent loop — the core engine. But to make it usable behind a service boundary, you need layers around it:
+- A way to receive requests (transport)
+- A way to find the right conversation (routing)
+- A way to keep state between requests (persistence)
+- Rules for what happens when the client disconnects (lifecycle)
 
-The difference matters because:
-- The agent's lifecycle is decoupled from yours. It can keep running when you disconnect.
-- You need a way to communicate (transport).
-- You need a way to find the right conversation (routing).
-- State might be lost between requests — depending on your architecture.
+This is where the choice between SDK-first and server-first matters.
 
-## What you need to build
+## The onion model: SDK-first vs server-first
 
-**Transport: how client and agent communicate.**
+**Think of it like layers of an onion.**
 
-Options, from simple to complex:
-- **HTTP request/response** — send a request, wait for the full response. No streaming.
-- **HTTP + SSE (Server-Sent Events)** — send a request, receive a stream of events. Good for showing progress.
-- **WebSocket** — bidirectional, real-time. Client and server can send messages anytime.
+At the core is the agent loop — the LLM, tools, and the loop that connects them. Both Claude Agent SDK and py-sdk give you this core.
 
-Claude in the Box, a minimal example, uses HTTP + SSE. It accepts a POST, spins up a sandbox, runs the agent, and streams stdout back. That's the minimum: accept request, run agent, stream output.
+Around the core are the service layers:
+- Transport (HTTP, WebSocket, SSE)
+- Routing (session IDs, request → process mapping)
+- Persistence (messages, artifacts, state)
+- Lifecycle management (background continuation, disconnection handling)
 
-(Authentication typically sits on top of the transport — an API key, a JWT, OAuth. It's standard web infrastructure, not specific to agents.)
+<!-- TODO: illustration — concentric circles (onion diagram). Inner circle: "Agent loop (Claude Agent SDK, py-sdk)". Next ring: "Session management". Next ring: "Transport (HTTP/WS)". Next ring: "Routing". Outer ring: "Persistence, lifecycle". Label the whole thing: "What you build with SDK-first". Then show OpenCode as a pre-assembled version with all layers included. -->
 
-**Routing: finding the right conversation.**
+**SDK-first (Claude Agent SDK, py-sdk): you build the layers.**
 
-If users can have multiple conversations, you need session IDs. If the agent runs in a specific container or process, you need to route requests to the right one.
-
-OpenCode (what Ramp uses) is designed for this — it runs an HTTP server and handles session routing out of the box. The Claude Agent SDK is not — you build the routing yourself.
-
-**State persistence: only if your runtime is ephemeral.**
-
-This is where the architecture decision matters.
-
-If your agent runs on a **persistent runtime** — a VPS, a dedicated server, a long-running container — the runtime *is* your persistence. Files stay on disk. Session state stays in memory. The Claude Agent SDK saves sessions automatically. When the user returns, everything is still there.
-
-Modal's sandbox snapshots work this way. Ramp uses Modal to freeze and restore the entire VM state — files, processes, memory. When a user returns, the snapshot is restored. From the agent's perspective, no time passed.
-
-If your agent runs on an **ephemeral runtime** — a serverless function, a fresh container per request — everything is lost when the request ends. You need to explicitly save what matters:
-- **Messages** — the conversation history
-- **Artifacts** — files the agent created (patches, reports, data)
-- **Optionally, traces** — tool calls and results, to avoid re-running side effects
-
-Where you persist is up to you. A database is the obvious choice. Cloudflare's moltworker mounts an R2 bucket as a filesystem — files written there survive container destruction.
-
-When the user returns, you load the persisted state back into the SDK. The SDK handles feeding it to the model. There's no special "reconstruction" step — you just load the messages and continue.
-
-**Background continuation: what happens when the client disconnects?**
-
-If the runtime persists:
-- **Stop immediately** — wait for the next user message
-- **Keep running** — continue the task, show results when user returns
-- **Run with timeout** — keep going for a grace period, then stop
-
-Ramp's architecture handles this explicitly. Users can queue follow-up prompts while the agent works. If they close the tab, the agent keeps going. Results are waiting when they return.
-
-If the runtime is ephemeral, the container is destroyed anyway — unless you use something like Cloudflare's Durable Objects with WebSocket hibernation.
-
-## SDK-first vs server-first
-
-**The Claude Agent SDK is SDK-first.**
-
-It gives you:
+The SDK gives you:
 - The agent loop
 - Built-in tools (Read, Write, Edit, Bash, Glob, Grep)
 - Session management with disk persistence
 - Conversation history tracking
 - Hooks for custom behavior
 
-It does *not* give you:
+You build:
 - HTTP/WebSocket server
-- Container orchestration
+- Request routing
+- Database integration (if needed)
 - Authentication
-- Database integration
+- Lifecycle policies
 
-You build the service boundary yourself.
+**Server-first (OpenCode): the layers come pre-built.**
 
-**OpenCode is server-first.**
+OpenCode ships as a server with an HTTP API. Session routing, streaming, cancellation — all included. You build clients (CLI, IDE plugins, web apps), not the service layer.
 
-It ships as a server with an HTTP API. Clients (CLI, IDE plugins, web apps) connect to it. Session routing, streaming, cancellation — all built in. You build clients, not the service layer.
+The trade-off:
+- **SDK-first** gives you control but requires more work
+- **Server-first** gives you structure but less flexibility
 
-The trade-off: SDK-first gives you control but requires more work. Server-first gives you structure but less flexibility.
+## What the layers do
+
+**Transport: how client and agent communicate.**
+
+Options, from simple to complex:
+- **HTTP request/response** — send a request, wait for the full response. No streaming.
+- **HTTP + SSE (Server-Sent Events)** — send a request, receive a stream of events. Shows progress.
+- **WebSocket** — bidirectional, real-time. Client and server can send messages anytime.
+
+Claude in the Box, a minimal example, uses HTTP + SSE. It accepts a POST, spins up a sandbox, runs the agent, and streams stdout back.
+
+Authentication sits on top of transport — API keys, JWTs, OAuth. Standard web infrastructure.
+
+**Routing: finding the right conversation.**
+
+If users can have multiple conversations, you need session IDs. If the agent runs in a specific container, you need to route requests to the right one.
+
+**Persistence: keeping state between requests.**
+
+If your runtime persists (VPS, long-running container, VM snapshots), the runtime *is* your persistence. The Claude Agent SDK saves sessions to disk automatically.
+
+If your runtime is ephemeral (serverless, fresh container per request), you need to explicitly save:
+- **Messages** — conversation history
+- **Artifacts** — files the agent created
+- **Optionally, traces** — tool calls and results
+
+When the user returns, you load the state back into the SDK. No special "reconstruction" — just load and continue.
+
+**Lifecycle: what happens when the client disconnects?**
+
+The expectation for a ChatGPT-like experience: the agent keeps running in the background.
+
+This requires infrastructure:
+- The agent process must outlive the client connection
+- You need a way to reconnect and see what happened
+- You need to decide: stop immediately, keep running, or timeout after a grace period?
+
+Ramp's architecture handles this explicitly. Users can queue follow-up prompts while the agent works. Close the tab, the agent keeps going. Results are waiting when you return.
+
+If you choose "stop immediately," implementation is simpler — no background process management. But the UX is different.
 
 ## What to keep in mind
 
-- **The progression is real.** Claude Code → Claude Agent SDK → behind a service boundary. Each step adds capabilities and complexity. You don't need to jump to the end.
-- **GitHub Actions is a clever shortcut.** The platform handles persistence (comments), transport (GitHub API), and routing (issues/PRs). The agent just reads and responds.
-- **The key question is: does your runtime persist?** If yes, state management is handled. If no, you need to save messages and artifacts explicitly.
-- **There's no mysterious "context reconstruction."** When you resume, you load persisted messages into the SDK. The SDK handles feeding them to the model. That's it.
+- **The progression is real.** Claude Code → Claude Agent SDK/py-sdk → behind a service boundary. Each step adds complexity. You don't need to jump to the end.
+- **OpenCode is the SDK with layers pre-built.** If you want server-first, start there. If you want control, build on Claude Agent SDK or py-sdk.
+- **The key question is: does your runtime persist?** If yes, state management is largely handled. If no, you save messages and artifacts explicitly.
+- **Background continuation requires infrastructure.** Decide early: should the agent keep running when the client disconnects? The answer shapes your architecture.
 
 
 # Part 5 — Where can it run? Environment constraints without ideology
