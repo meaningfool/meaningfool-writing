@@ -441,17 +441,13 @@ That earlier task — "find Python files modified this week, check which import 
 
 Because giving an agent bash access is giving it access to the entire Unix environment: file operations, network requests, text processing, program execution, and the ability to combine them in ways you did not anticipate.
 
-Vercel tested this directly. Their observation:
-
-> "With only a bash execution tool, an agent can theoretically accomplish any computational task because bash provides access to the entire UNIX environment."
-
-Their experiment: they removed 80% of the specialized tools from their agent, kept only bash, and performance improved. Their conclusion: "The best agents might be the ones with the fewest tools."
+Vercel tested this directly. Their text-to-SQL agent d0 had 17 specialized tools and achieved an 80% success rate. They ["deleted most of it and stripped the agent down to a single tool: execute arbitrary bash commands."](https://vercel.com/blog/we-removed-80-percent-of-our-agents-tools) The result: 100% success rate, 3.5x faster, 37% fewer tokens. Their conclusion: "The best agents might be the ones with the fewest tools."
 
 **The Unix philosophy aligns with how LLMs work.**
 
 Unix was designed around small tools that do one thing well, connected by text streams. An LLM is, in a sense, exactly the user Unix was designed for — it can read documentation, reason about commands, and compose small operations into larger workflows.
 
-Claude Code's creators described watching the agent explore a codebase:
+Boris Cherny, founding engineer of Claude Code, [described](https://newsletter.pragmaticengineer.com/p/how-claude-code-is-built) watching the agent explore a codebase:
 
 > "Claude exploring the filesystem was mindblowing...it would read one file, look at the imports, then read files defined in imports."
 
@@ -475,7 +471,7 @@ Databases require schemas. Key-value stores require string values. Logging syste
 
 A file can contain anything: Markdown, JSON, images, binaries, code. A directory can organize files however makes sense. The agent decides what to write, what to name it, how to structure it.
 
-Manus describes their approach:
+Manus describes their approach in ["Context Engineering for AI Agents"](https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus):
 
 > "File System as Extended Memory: The approach treats filesystem storage as 'unlimited in size, persistent by nature, and directly operable by the agent itself.'"
 
@@ -782,9 +778,13 @@ If you want, we can add a small "Where are we on the 2×2?" callout box at the s
 
 ### Bash and code execution
 
-- **Vercel — Testing if "bash is all you need"**
-  Direct experiment: removed 80% of specialized tools, kept only bash, performance improved. "With only a bash execution tool, an agent can theoretically accomplish any computational task."
-  https://vercel.com/blog/testing-if-bash-is-all-you-need
+- **Vercel — We removed 80% of our agent's tools**
+  Direct experiment: stripped the d0 agent down to a single bash tool. Success rate went from 80% to 100%, 3.5x faster, 37% fewer tokens. "The best agents might be the ones with the fewest tools."
+  https://vercel.com/blog/we-removed-80-percent-of-our-agents-tools
+
+- **Vercel — How to build agents with filesystems and bash**
+  Practical guide to the filesystem-and-bash pattern. "Maybe the best architecture is almost no architecture at all. Just filesystems and bash."
+  https://vercel.com/blog/how-to-build-agents-with-filesystems-and-bash
 
 - **Cloudflare — Code Mode**
   Converted MCP tools into a TypeScript API and had agents write code to call it. "LLMs have seen a lot of code. They have not seen a lot of 'tool calls'."
@@ -816,7 +816,7 @@ If you want, we can add a small "Where are we on the 2×2?" callout box at the s
 
 - **LangGraph — Thinking in LangGraph**
   The mental model behind app-driven orchestration: explicit graphs, state machines, and developer-defined control flow. Includes the email-triage workflow example.
-  https://langchain-ai.github.io/langgraph/concepts/
+  https://docs.langchain.com/oss/python/langgraph/thinking-in-langgraph
 
 ### Runtime and infrastructure
 
@@ -824,6 +824,6 @@ If you want, we can add a small "Where are we on the 2×2?" callout box at the s
   Argues for treating agent state like a filesystem but implementing it as a database. "Traditional approaches fragment state across multiple tools—databases, logging systems, file storage, and version control."
   https://turso.tech/blog/agentfs
 
-- **The New Stack — AI Agents and the Return of Stateful Compute**
+- **The New Stack — Serverless Cloud Architecture Is Failing Modern AI Agents**
   "AI agents do not operate in milliseconds. They work across sequences of steps, referring to past context, creating intermediate files, running validations." Argues the core unit of compute is now a session, not an invocation.
-  https://thenewstack.io/ai-agents-and-the-return-of-stateful-compute/
+  https://thenewstack.io/serverless-cloud-architecture-is-failing-modern-ai-agents/
