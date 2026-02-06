@@ -244,46 +244,51 @@ This section focuses on the question: **who owns that logic? who owns the contro
 
 ## App-driven control flow
 
-**In one paradigm, the app owns the state machine**:
+**Within the app-driven control flow, the app owns the state machine**:
 
 - The developer, define the graph: the nodes (steps), the edges (transitions), the routing logic. 
-- The LLM is a component called within each step — it may classify, generate, or validate — but the app decides what runs next.
+- The LLM is a component called within each step but the app enforces the flow defined by the developer.
 
 <!-- TODO: illustration — the email-triage workflow graph: START → Read Email → Classify Intent → [Doc Search | Bug Track | Human Review] → Draft Reply → [Human Review | Send Reply] → END. This is the diagram you pasted. Show the nodes as boxes with arrows indicating transitions and branching. -->
 
-This is what orchestration frameworks like LangGraph are built for. Here is a condensed version of the email-triage workflow from the LangGraph documentation ("Thinking in LangGraph"):
-
-Typical signs of app-driven control flow:
-- Explicit stage transitions in code or config.
-- Multiple different prompts or schemas per stage.
-- The app decides when to request user input.
-- The model may call tools *within* a step, but the **macro progression** is app-owned.
+//note update the todo as suggested
 
 
-// note add a link to anthropic's blog post
-Anthropic's "Building Effective Agents" blog post catalogs several variants of this pattern:
+Anthropic's ["Building Effective Agents"](https://www.anthropic.com/research/building-effective-agents) blog post catalogs several variants of app-driven control flow:
 - **Prompt chaining** — each LLM call processes the output of the previous one.
 - **Routing** — an LLM classifies an input and directs it to a specialized follow-up.
 - **Parallelization** — LLMs work simultaneously on subtasks, outputs are aggregated.
 - **Orchestrator-workers** — a central LLM breaks down tasks and delegates to workers.
 - **Evaluator-optimizer** — one LLM generates, another evaluates, in a loop.
 
-All of these are workflows. The developer wires the control flow. The LLM is a component.
-
-// note: provide some details on how to actually build that using orchestration framework. 1 - say that they all provide an implementation of the agentic loop (I just cut and paste a part from the harness part below that belongs here, 2- provide some insights on how to do it in pseudo-code. 3- I'm not sure where to mention anthropics patterns, it does not feel like a proper conclusion to this part, 4- actually propose a conclusion
-
-//note: below is copy pasted from the harness part. The "harness" is a term I keep for agent sdks
-You can hand-roll the agentic loop (we showed the pseudocode in Part 1). But as soon as you do, you implicitly take on:
-- Parsing tool calls and mapping them to real functions.
+**Orchestration frameworks provide the infrastructure for building these workflows.** They abstract the plumbing so that developers can focus on the workflow logic. More specifically they handle:
+- The tool calls, retries, timeouts, and error handling.
 - Feeding results back into the next model call.
-- Stop conditions.
-- Error handling, retries, timeouts.
-- Permissions and safety guardrails.
+- Stop conditions, error handling, retries, timeouts.
 
-An **agent framework** (Vercel AI SDK, PydanticAI, OpenAI Agents SDK) gives you the loop so you do not rewrite it every time:
-- A standard way to declare tools and schemas.
-- A built-in loop: tool request → execution → observation → next call.
-- Helpers for validation and retry patterns.
+Here is schematically how the developer would implement the restaurant reservation workflow:
+
+```
+workflow = new Workflow()
+
+workflow.add_step("search",       search_restaurants)
+workflow.add_step("get_reviews",  fetch_reviews)
+workflow.add_step("check_avail",  check_availability)
+workflow.add_step("respond",      format_response)
+
+workflow.add_route("search"      → "get_reviews")
+workflow.add_route("get_reviews"  → "check_avail")
+workflow.add_route("check_avail"  → "respond")
+
+result = workflow.run("Italian restaurant near the office, Friday, 4 people")
+```
+On top of that, he would have to define functions for each of the tools made available, such as `search_restaurants`, `fetch_reviews`, `check_availability`, and `format_response`.
+
+//note add pseudo code illustrating defining one of these functions.
+
+// note: add a comparison between the frameworks we have listed. Let's keep it high-level. What I have in mind: PydanticAI and LangGraph are both python, while Mastra and Vercel SDK are both javascript. PydanticAI is type safe, and the nodes in the graph are actual schemas. Vercel SDK used to be more low-level (focusing on the tool loop + AI gateway to provide a unified interface for all LLMs), but v6 introduced more agent/ workflow features. Mastra build on top of Vercel SDK. Spawn research agents to validate / invalidate my points and add more meaningful traits if relevant.
+
+// note: in the last commit there was a part about typical signs of app-driven control flow. Put it here, at the end ot the app-driven control flow part, pointing to the fact that there are more frameworks than the ones cited above.
 
 ## Agent-driven control flow
 
@@ -332,17 +337,16 @@ The harness is term designating all the assets and capabilities provided to the 
 - **Hooks / callbacks** — places the host can intercept or augment behavior: logging, approvals, guardrails.
 
 **Note**: Orchestration frameworks are adding modes to create agent-driven control flows:
-- LangChain added "Deep Agents" in July 2025).  The `deepagents` package ships all of this as built-in middleware on top of LangGraph.
+- LangChain added "Deep Agents" in July 2025. The `deepagents` package ships all of this as built-in middleware on top of LangGraph.
 - PydanticAI lists "Deep Agents" as a first-class multi-agent pattern — planning, filesystem operations, task delegation, sandboxed code execution. 
 
 ## What to keep in mind
 
 Three points from this section:
 
-- **Orchestration is about who decides what happens next.** In app-driven control flow, the developer defines the graph. In agent-driven control flow, the model decides based on goals, tools, and prompts. Both are valid, the choice depends on how predictable the task is.
-- ~~**The progression is real.** One big prompt → prompt chaining → workflows → agent loops. Each step adds flexibility and reduces the developer's control. Understanding where you are on that spectrum helps you pick the right framework.~~
-- ~~**The harness is not optional for agent-driven systems.** When the agent self-orchestrates, the harness — policies, permissions, tools, modes, hooks — is what keeps it reliable. This is the infrastructure that separates a toy demo from a production system.~~
-//note: keep the fist point, find one or 2 other better ones and remove the striken ones
+- **Orchestration is about who decides what happens next.** In app-driven control flow, the developer defines the graph. In agent-driven control flow, the model decides based on goals, tools, and prompts. Both are valid — the choice depends on how predictable the task is.
+- **Orchestration frameworks handle the plumbing.** Whether you choose app-driven or agent-driven, frameworks give you the loop, tool wiring, and error handling so you can focus on the logic — not on parsing JSON and managing retries.
+- **In agent-driven systems, the harness replaces the graph.** The agent has more freedom, but it is not unsupervised. System prompts, permissions, skills, and hooks are what steer it. The harness is the developer's control surface when there is no explicit workflow.
 
 # Part 3 — Bash and the filesystem
 
