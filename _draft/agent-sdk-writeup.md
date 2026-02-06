@@ -43,7 +43,7 @@ Three ingredients:
 - Tools
 - A loop.
 
-Let's unpacks each one.
+Let's unpack each one.
 
 ## What an LLM does
 
@@ -77,25 +77,29 @@ We said that LLM can only produce text.
 So how does an LLM ask for calling a tool? 
 Does it return a text saying "I need to run the calculator" or something like that?
 
-**To call a tool the LLM is returning a JSON object** that says which tool it wants to run, and with which parameters. 
+**To call a tool the LLM is returning a JSON object** that says which tool it wants to run, and with which parameters.
 
-[//]: # Add an example of JSON object for tool calling
+For example, if the LLM wants to check the weather in Paris, instead of responding with text, it returns something like:
+
+```json
+{
+  "type": "tool_use",
+  "name": "get_weather",
+  "input": { "city": "Paris" }
+}
+```
 
 But how did the LLM learn to generate such JSON objects as the *most likely chain of characters* in the middle of a conversation in plain english?
 
 **Tool calling is not something that existed in the original training data.**
 Nobody writes "output a JSON object to invoke a calculator function" on the internet. 
-This behavior had to be taught.
 
-**Fine-tuning on tool-use transcripts**: models are shown many examples of conversations where the assistant produces structured function invocations, receives results, and continues. OpenAI shipped this first commercially (June 2023, GPT-3.5/GPT-4), and other providers followed.
-
-Key points:
+**LLM are specifically trained to learn when to use tools** through fine-tuning on tool-use transcripts: 
+- The models are trained on many examples of conversations where the assistant produces structured function invocations, receives results, and continues. OpenAI shipped this first commercially (June 2023, GPT-3.5/GPT-4), and other providers followed.
 - The model does not learn each specific tool. It learns the *general pattern*: when to invoke, how to format the call, how to integrate the result.
 - The specific tools available are described in the prompt — the model reads their names, descriptions, and parameter schemas as text.
-- At the token level, this is still next-token prediction. The model has just been trained on enough tool-use transcripts that, in the right context, the most probable next token is a structured tool call rather than natural language.
 
-**Tool hallucination**: that's a consequence of tool training: the model can generate calls to tools that were never provided, or fabricate parameters. UC Berkeley's Gorilla project (Berkeley Function-Calling Leaderboard) has documented this systematically — it is one reason agent frameworks invest in validation and error handling.
-// Comment: add link to the Gorilla project
+**Tool hallucination**: as a consequence of tool training, the model can generate calls to tools that were never provided, or fabricate parameters. UC Berkeley's [Gorilla project](https://gorilla.cs.berkeley.edu/) (Berkeley Function-Calling Leaderboard) has documented this systematically — it is one reason agent frameworks invest in validation and error handling.
 
 ## The two-step pattern
 
@@ -107,72 +111,32 @@ Key points:
 If the model requests a tool call, *your code* executes it. You send the result back as a follow-up message. The model uses that result to formulate its answer — or to request yet another tool call.
 
 **Tool use always involves at least two model calls.**
-// Comment: break down the code below : 1. available tools in the llm() function, has_tool_calls to detect whether it's a text response or a demand for tools, execute to run the tool append (tool_result) to insert the result of the tool call in the conversation, second llm call to call the llm on the transcript augmented with the tool call result
 
 In pseudocode:
 
 ```
 messages = [system_prompt, user_message]
 
+# LLM Call 1 — send previous messages + list of available tools to the LLM
 response = llm(messages, tools=available_tools)
 
+# Did the model respond with text, or with a tool-call request?
 if response.has_tool_calls:
     for call in response.tool_calls:
-        result = execute(call.name, call.arguments)
-        messages.append(call)
-        messages.append(tool_result(call.id, result))
+        result = execute(call.name, call.arguments)  # Execute the tool
+        messages.append(call)                         
+        messages.append(tool_result(call.id, result)) # Insert the tool result in the list of messages
 
+    # LLM Call 2 — send previous messages augmented with the tool call result (and the available tools - the LLM may do many tool calls before writing and returning a message
     response = llm(messages, tools=available_tools)
 
 print(response.text)
 ```
 
+Walking through it: the program calls the LLM with the conversation and a list of available tools. If the LLM responds with a tool-call request instead of text, the program runs the tool, appends the result to the conversation, and calls the LLM again. The second call sees the full transcript — including the tool result — and can now produce a text answer.
 
-// Note: remove or simplify the example below using pseudo code.
-With the Anthropic Python SDK:
 
-```python
-import anthropic
-client = anthropic.Anthropic()
-
-tools = [{
-    "name": "get_weather",
-    "description": "Get the current weather for a city",
-    "input_schema": {
-        "type": "object",
-        "properties": {"city": {"type": "string"}},
-        "required": ["city"]
-    }
-}]
-
-messages = [{"role": "user", "content": "What's the weather in Paris?"}]
-
-# Call 1 — model decides to use the tool
-response = client.messages.create(
-    model="claude-sonnet-4-20250514",
-    max_tokens=1024, tools=tools, messages=messages
-)
-
-# Execute the tool, feed the result back
-tool_block = next(b for b in response.content if b.type == "tool_use")
-weather_data = get_weather(tool_block.input["city"])
-
-messages.append({"role": "assistant", "content": response.content})
-messages.append({"role": "user", "content": [{
-    "type": "tool_result",
-    "tool_use_id": tool_block.id,
-    "content": weather_data
-}]})
-
-# Call 2 — model integrates the result
-response = client.messages.create(
-    model="claude-sonnet-4-20250514",
-    max_tokens=1024, tools=tools, messages=messages
-)
-print(response.content[0].text)
-```
-
-Two calls. Tool execution happens in your code, between them.
+In real SDK code (Anthropic, OpenAI, etc.), the pattern is the same — it just involves more boilerplate: HTTP calls, JSON schemas for tool definitions, message formatting. The pseudocode above captures the logic that matters.
 
 ## The agentic loop
 
@@ -203,25 +167,29 @@ The model loops: calling tools, receiving results, deciding what to do next, unt
 
 In practice, you add guardrails: a maximum number of iterations, a cost budget, validation checks. But the core mechanism is the same.
 
-Here is what this looks like with the Vercel AI SDK, which provides a built-in loop via `maxSteps`:
+**What this looks like in practice.**
 
-```typescript
-import { generateText } from "ai";
-import { anthropic } from "@ai-sdk/anthropic";
+Here is a simplified trace of an agent booking a restaurant. Each block is one iteration of the loop:
 
-const result = await generateText({
-  model: anthropic("claude-sonnet-4-20250514"),
-  tools: {
-    getWeather: {
-      description: "Get the current weather for a city",
-      parameters: z.object({ city: z.string() }),
-      execute: async ({ city }) => lookupWeather(city),
-    },
-  },
-  maxSteps: 5,
-  prompt: "What's the weather in Paris and Tokyo?",
-});
 ```
+User:      "Find me a good Italian restaurant near the office
+            for Friday dinner, 4 people."
+
+Agent:     [tool: search_web("Italian restaurants near 123 Main St")]
+           → 3 results: Trattoria Roma, Pasta House, Il Giardino
+
+Agent:     [tool: get_reviews("Trattoria Roma", "Pasta House", "Il Giardino")]
+           → Trattoria Roma: 4.7★, Pasta House: 3.9★, Il Giardino: 4.5★
+
+Agent:     [tool: check_availability("Trattoria Roma", friday, party=4)]
+           → available at 7:30 PM and 8:00 PM
+
+Agent:     "Trattoria Roma is the best rated (4.7★) and has two
+            slots Friday for 4: 7:30 PM or 8:00 PM.
+            Want me to book one?"
+```
+
+Four loop iterations. Three tool calls, then a text response that ends the loop. The agent decided which restaurants to look up, which one to check availability for first (the highest rated), and when it had enough information to stop. The program just ran the tools and passed results back.
 
 ## What to keep in mind
 
@@ -235,90 +203,55 @@ Three points from this section that carry through the rest of the report:
 
 # Part 2 — Where orchestration lives
 
+In part 2 we examine the difference between the *Orchestration frameworks* and the *Agent SDKs*. The limit between the 2 can be tenuous, especially with the orchestration frameworks venturing into the Agent SDK's space.
+
+Who is responsible for the orchestration? That's where the difference lives. 
+
+To understand what "orchestration" means, we have to look at how things started and evolved.
+
 ## How we got here
-
-**At first, people would build one massive prompt.**
-Cram all the instructions, context, examples, and output format into a single call and hope the LLM would get it right in one pass.
-
-**This was brittle.**
-Long prompts are hard to debug, easy to break, and unreliable on tasks that require multiple steps or intermediate reasoning.
-
-**The next step was to break things down.**
-Instead of one monolithic prompt, you split the task into smaller steps — each with its own prompt, its own expected output, and its own validation logic. The output of step 1 feeds into step 2, and so on.
-
-This is **prompt chaining**: a sequence of LLM calls where each step has a narrow, well-defined responsibility.
 
 <!-- TODO: illustration — progression from single prompt → prompt chain → workflow with tools → agent loop. A horizontal timeline or staircase showing the progression. Reference: the "historical ladder" from Anthropic's "Building Effective Agents" blog post. -->
 
-**Then tools enter the picture.**
+1️⃣ **At first, people would build one massive prompt and submit it to the LLM.**
+They would cram all the instructions, context, examples, and output format into a single call and hope the LLM would get it right in one pass.
+
+**This was brittle:**
+- LLMs  were unreliable on tasks that require multiple steps or intermediate reasoning.
+- Long prompts produced less predictable output: some parts of the prompt would get overlooked or confuse the model. The longer the prompt, the less consistent the results over multiple runs. 
+- Long prompts were easy to break: even small changes could alter dramatically the behaviour. 
+
+This made massive prompts hard to fix and improve.
+
+2️⃣ **Getting better results meant break things down.**
+Instead of one monolithic prompt, you split the task into smaller steps — each with its own prompt, its own expected output, and its own validation logic. The output of step 1 feeds into step 2, and so on.
+
+**This is prompt chaining**: a sequence of LLM calls where each step has a narrow, well-defined responsibility.
+
+3️⃣ **Then tools enter the picture.**
 Once you add tool calling (Part 1), each step in the chain can now do real work — query a database, search the web, validate data against an API. The chain becomes a **workflow**: a sequence of steps, some of which involve LLM calls, some of which invoke tools, connected by routing logic.
 
-**This is where orchestration appears.**
-Once you have multiple steps with branching and routing, someone needs to decide: what happens next? Which step follows which? What do we do if a step fails?
+4️⃣ **And now we have frameworks to get rid of the workflows**: we trust the agent to do it all. We are somewhat back to 1️⃣ but with the addition of tool calling and much better (thinking) models. 
+
+Building such workflows means deciding about the structure / the flow of actions that lead towards the realization of the outcome. That's what orchestration means.
 
 > **Orchestration** is the logic that structures the flow — the sequence of steps, the transitions between them, and how the next step is determined.
 
-The question for this section: **who owns that logic?**
+This section focuses on the question: **who owns that logic? who owns the control flow?**
+
+- **App-driven control flow**: the logic is decided by the developer and "physically constrained" through code.
+- **Agent-driven control flow**: the logic is suggested by the developer and it is left to the LLM / agent to follow the instructions.
 
 ## App-driven control flow
 
-**In one paradigm, the app owns the state machine.**
+**In one paradigm, the app owns the state machine**:
 
-You, the developer, define the graph: the nodes (steps), the edges (transitions), the routing logic. The LLM is a component called within each step — it may classify, generate, or validate — but the app decides what runs next.
+- The developer, define the graph: the nodes (steps), the edges (transitions), the routing logic. 
+- The LLM is a component called within each step — it may classify, generate, or validate — but the app decides what runs next.
 
 <!-- TODO: illustration — the email-triage workflow graph: START → Read Email → Classify Intent → [Doc Search | Bug Track | Human Review] → Draft Reply → [Human Review | Send Reply] → END. This is the diagram you pasted. Show the nodes as boxes with arrows indicating transitions and branching. -->
 
 This is what orchestration frameworks like LangGraph are built for. Here is a condensed version of the email-triage workflow from the LangGraph documentation ("Thinking in LangGraph"):
-
-```python
-from langgraph.graph import StateGraph, START, END
-from langgraph.types import Command, interrupt
-
-class EmailAgentState(TypedDict):
-    email_content: str
-    classification: EmailClassification | None
-    search_results: list[str] | None
-    draft_response: str | None
-
-def classify_intent(state):
-    """LLM classifies the email, then the node routes to the next step."""
-    result = llm.with_structured_output(EmailClassification).invoke(
-        f"Classify this email: {state['email_content']}"
-    )
-    route = {"question": "doc_search", "bug": "bug_track"}
-    return Command(
-        update={"classification": result},
-        goto=route.get(result["intent"], "human_review")
-    )
-
-def draft_response(state):
-    """LLM drafts a reply, then the node decides: send or human review."""
-    draft = llm.invoke(f"Draft reply for: {state['email_content']}")
-    if state["classification"]["urgency"] in ["high", "critical"]:
-        return Command(update={"draft_response": draft}, goto="human_review")
-    return Command(update={"draft_response": draft}, goto="send_reply")
-
-# Assemble the graph
-workflow = StateGraph(EmailAgentState)
-workflow.add_node("read_email", read_email)
-workflow.add_node("classify_intent", classify_intent)
-workflow.add_node("doc_search", doc_search)
-workflow.add_node("bug_track", bug_track)
-workflow.add_node("draft_response", draft_response)
-workflow.add_node("human_review", human_review)
-workflow.add_node("send_reply", send_reply)
-workflow.add_edge(START, "read_email")
-workflow.add_edge("read_email", "classify_intent")
-workflow.add_edge("send_reply", END)
-
-app = workflow.compile(checkpointer=MemorySaver())
-```
-
-The pattern is clear:
-- Each node is a Python function that does one thing.
-- Routing happens via `Command(goto=...)` — the node decides where to go next.
-- The LLM is used inside nodes (to classify, to draft), but the **graph structure is defined by the developer**.
-- The framework provides durability (checkpoints), human-in-the-loop (`interrupt()`), retries.
 
 Typical signs of app-driven control flow:
 - Explicit stage transitions in code or config.
@@ -326,6 +259,8 @@ Typical signs of app-driven control flow:
 - The app decides when to request user input.
 - The model may call tools *within* a step, but the **macro progression** is app-owned.
 
+
+// note add a link to anthropic's blog post
 Anthropic's "Building Effective Agents" blog post catalogs several variants of this pattern:
 - **Prompt chaining** — each LLM call processes the output of the previous one.
 - **Routing** — an LLM classifies an input and directs it to a specialized follow-up.
@@ -335,46 +270,9 @@ Anthropic's "Building Effective Agents" blog post catalogs several variants of t
 
 All of these are workflows. The developer wires the control flow. The LLM is a component.
 
-## Agent-driven control flow
+// note: provide some details on how to actually build that using orchestration framework. 1 - say that they all provide an implementation of the agentic loop (I just cut and paste a part from the harness part below that belongs here, 2- provide some insights on how to do it in pseudo-code. 3- I'm not sure where to mention anthropics patterns, it does not feel like a proper conclusion to this part, 4- actually propose a conclusion
 
-**In the other paradigm, the agent decides what happens next.**
-
-The host app sets the goal, provides tools and constraints, and then largely steps back. There is no explicit graph. No developer-defined state machine. The orchestration moves *inside* the agent loop — encoded in the system prompt, the available tools, and the model's own judgment.
-
-In pseudocode, the host app looks like this:
-
-```
-agent = Agent(
-    model = "claude-sonnet",
-    system_prompt = "You are a coding assistant. Read files, edit code,
-                     run tests. Fix the failing test in src/auth.ts.",
-    tools = [read_file, edit_file, run_tests, search_codebase],
-    max_turns = 50
-)
-
-result = agent.run("Fix the failing test in src/auth.ts")
-```
-
-That is the entire app. The agent decides:
-- What to read first.
-- What to edit.
-- When to run tests.
-- Whether to try a different approach after a failure.
-- When to stop.
-
-This is the model behind coding agents like Claude Code, Codex, and similar systems. Anthropic renamed their Claude Code SDK to the Claude Agent SDK precisely because this pattern applies beyond coding — they use the same loop for research, video creation, and note-taking.
-
-Typical signs of agent-driven control flow:
-- A single "run" can produce many internal steps before a user-facing answer.
-- Plan/build modes, restricted vs enabled toolsets, subagent delegation.
-- The host app is thin: it relays messages, enforces permissions, renders results.
-
-**Orchestration did not vanish.** It moved into the agent system — into the prompt, the tools, the skills, the modes.
-
-## The harness
-
-**When the agent self-orchestrates, something has to make that reliable.**
-
+//note: below is copy pasted from the harness part. The "harness" is a term I keep for agent sdks
 You can hand-roll the agentic loop (we showed the pseudocode in Part 1). But as soon as you do, you implicitly take on:
 - Parsing tool calls and mapping them to real functions.
 - Feeding results back into the next model call.
@@ -387,38 +285,64 @@ An **agent framework** (Vercel AI SDK, PydanticAI, OpenAI Agents SDK) gives you 
 - A built-in loop: tool request → execution → observation → next call.
 - Helpers for validation and retry patterns.
 
-But these frameworks do not decide the orchestration for you. In the app-driven paradigm, that is your job — your graph, your routing logic.
+## Agent-driven control flow
 
-**In the agent-driven paradigm, the word "harness" becomes more accurate.**
-Not just a loop wrapper, but a runtime that provides the structure the agent needs to self-orchestrate reliably:
+**With Agent-driven control flow, the agent decides what happens next**:
 
-- **System prompts / policies** — the rules of the road: what to do, what not to do, how to behave.
-- **Tooling surface** — what the agent can actually do: search, fetch, edit, run commands, apply patches.
-- **Permissions** — which tools are allowed, under what conditions, with what scoping.
-- **Skills / commands / modes** — named behaviors the agent can invoke (e.g., "plan mode", "review", "apply patch").
+- The agent is provided with a goal, some context and instructions, and some tools. 
+- The agent decides which tools to call in which order: there is no explicit graph. No developer-defined state machine. 
+
+It looks like this:
+
+```
+agent = Agent(
+    model = "claude-sonnet",
+    system_prompt = "You are a coding assistant. Read files, edit code,
+                     run tests. Fix the failing test in src/auth.ts.",
+    tools = [read_file, edit_file, run_tests, search_codebase], 
+    max_turns = 50
+)
+
+result = agent.run("Fix the failing test in src/auth.ts")
+```
+
+The agent decides:
+- What to read first.
+- What to edit.
+- When to run tests.
+- Whether to try a different approach after a failure.
+- When to stop.
+
+**The orchestration moves *inside* the agent loop**: it's encoded in the system prompt, the available tools, and the model's own judgment.
+
+This is the model behind coding agents like Claude Code, Codex, and similar systems. Anthropic renamed their Claude Code SDK to the Claude Agent SDK precisely because this pattern applies beyond coding — they use the same loop for research, video creation, and note-taking.
+
+Typical signs of agent-driven control flow:
+- **The hosting app is thin**: it relays messages, enforces permissions, renders results.
+- **The logic lives in the harness** in the form of system prompts, context files, skills and other "capabilities" that steer the agent towards the expected outcome.
+
+## The harness
+
+The harness is term designating all the assets and capabilities provided to the agent to steer it towards the expected outcome:
+
+- **System prompts, policies and instructions (in agent.md or similar)**: the rules of the road: what to do, what not to do, how to behave.
+- **Tools**: what pre-packaged tools are available to search, fetch, edit, run commands, apply patches.
+- **Permissions**: which tools are allowed, under what conditions, with what scoping.
+- **Skills**: pre-packaged behaviours and assets the agent can invoke.
 - **Hooks / callbacks** — places the host can intercept or augment behavior: logging, approvals, guardrails.
-- **State conventions** — how the harness represents and feeds back observations, errors, and progress.
 
-The Anthropic Claude Agent SDK blog post frames this as: "Agents often operate in a specific feedback loop: gather context → take action → verify work → repeat." The harness provides the infrastructure that makes this loop safe and effective — tools, constraints, and verification — so the agent can focus on the goal.
-
-<!-- TODO: illustration — spectrum from hand-rolled loop → agent framework → agent harness. A horizontal bar or progression showing what each layer adds. The hand-rolled loop is raw code; the framework adds tool wiring + loop management; the harness adds policies, permissions, skills, hooks, and state conventions. -->
-
-**The line between orchestration framework and harness is dissolving.**
-
-LangChain's "Deep Agents" initiative (July 2025) made this explicit. Harrison Chase studied what made Claude Code effective as a general-purpose agent, then packaged those characteristics as reusable components: a planning tool, sub-agents with isolated context, filesystem access for notes and intermediate results, and detailed system prompts. He called it "the harness" — sitting above LangGraph (the runtime) and LangChain (the abstraction). The `deepagents` package ships all of this as built-in middleware on top of LangGraph.
-
-PydanticAI followed the same trajectory. Its official documentation now lists "Deep Agents" as a first-class multi-agent pattern — planning, filesystem operations, task delegation, sandboxed code execution. A community framework (`pydantic-deepagents`) fills the implementation gap with tools for todo tracking, filesystem access, and sub-agent orchestration.
-
-The pattern is clear: orchestration frameworks are absorbing harness capabilities. Planning, filesystem-as-memory, sub-agent delegation, and detailed prompts are no longer things you bolt on — they are becoming defaults. The distinction matters less as a taxonomy and more as a design question: which of these capabilities does your system need, and does your framework provide them or do you build them yourself?
+**Note**: Orchestration frameworks are adding modes to create agent-driven control flows:
+- LangChain added "Deep Agents" in July 2025).  The `deepagents` package ships all of this as built-in middleware on top of LangGraph.
+- PydanticAI lists "Deep Agents" as a first-class multi-agent pattern — planning, filesystem operations, task delegation, sandboxed code execution. 
 
 ## What to keep in mind
 
 Three points from this section:
 
-- **Orchestration is about who decides what happens next.** In app-driven control flow, the developer defines the graph. In agent-driven control flow, the model decides based on goals, tools, and prompts. Both are valid — the choice depends on how predictable the task is.
-- **The progression is real.** One big prompt → prompt chaining → workflows → agent loops. Each step adds flexibility and reduces the developer's control. Understanding where you are on that spectrum helps you pick the right framework.
-- **The harness is not optional for agent-driven systems.** When the agent self-orchestrates, the harness — policies, permissions, tools, modes, hooks — is what keeps it reliable. This is the infrastructure that separates a toy demo from a production system.
-
+- **Orchestration is about who decides what happens next.** In app-driven control flow, the developer defines the graph. In agent-driven control flow, the model decides based on goals, tools, and prompts. Both are valid, the choice depends on how predictable the task is.
+- ~~**The progression is real.** One big prompt → prompt chaining → workflows → agent loops. Each step adds flexibility and reduces the developer's control. Understanding where you are on that spectrum helps you pick the right framework.~~
+- ~~**The harness is not optional for agent-driven systems.** When the agent self-orchestrates, the harness — policies, permissions, tools, modes, hooks — is what keeps it reliable. This is the infrastructure that separates a toy demo from a production system.~~
+//note: keep the fist point, find one or 2 other better ones and remove the striken ones
 
 # Part 3 — Bash and the filesystem
 
