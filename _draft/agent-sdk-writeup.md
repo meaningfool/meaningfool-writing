@@ -1,15 +1,18 @@
 # Agent SDK for the Rest of Us
 
-**There are too many agent frameworks.**
-PydanticAI, LangGraph, Vercel AI SDK, Claude Agent SDK, OpenAI Agents SDK, Mastra — and more every month.
+**How do you build an AI agent?**
 
-**The question is not "which one is best."**
-It is: what are they actually doing, what do they share, and what genuinely sets them apart?
+That's the question, I started from. 
+Which quickly led me to: 
 
-**This report is my attempt to answer that.**
-It comes from reading docs, studying architectures, and building small prototypes with several of these frameworks.
+**There are all these frameworks out there** - Langchain/LangGraph, Vercel AI SDK, PydanticAI, Claude Agent SDK, Mastra, Opencode - to name just a few. 
+That feels very confusing.
+**How are they different?**
 
-The rest of this report uses a 2×2 map as a Rosetta Stone to navigate the landscape:
+I am a reasonably technical PM, and I felt the need to build a sound understanding of the concepts and technical considerations underpinning the design of agents. 
+This report is my attempt to share what I've learnt. 
+If you spot errors, please let me know, it's part of the learning experience.
+
 
 - **Horizontal axis — where does orchestration live?**
   Orchestration *outside* the agent loop (app-driven) ↔ orchestration *inside* the agent loop (agent-driven).
@@ -527,29 +530,13 @@ The reason is straightforward: LLMs have been trained on billions of lines of re
 
 **Not all runtimes have a filesystem or a shell.**
 
-| Runtime | Filesystem | Shell | Persistent state |
-|---------|------------|-------|------------------|
-| Your laptop | ✓ | ✓ | ✓ |
-| VPS / VM | ✓ | ✓ | ✓ |
-| Container (long-running) | ✓ | ✓ | Within session |
-| AWS Lambda | Limited | No | No |
-| Cloudflare Workers | No | No | No |
-| Edge functions | No | No | No |
-
-**What breaks without these primitives:**
-- Agents cannot compose arbitrary operations — they are limited to predefined tools.
-- Agents cannot persist intermediate results flexibly — they are limited to predefined schemas.
-- The optimizations from code execution are unavailable.
+Serverless functions, edge workers, and similar environments do not provide the primitives agents need. Without a filesystem and a shell, agents cannot compose arbitrary operations and cannot persist intermediate results flexibly.
 
 **The workaround is always the same: give the agent a full machine.**
 
-Cloudflare built the Sandbox SDK on top of Containers — each sandbox runs in its own isolated container with a full Linux environment. Manus uses E2B (Firecracker microVMs) — ephemeral, lightweight virtual machines with full filesystem access. OpenAI Codex runs each task in its own cloud sandbox, preloaded with the repository.
+Cloudflare built the Sandbox SDK on top of Containers. Manus uses E2B (Firecracker microVMs). OpenAI Codex runs each task in its own cloud sandbox. The pattern is consistent: when the runtime does not provide a filesystem and a shell, you give the agent a VM or container that does.
 
-> **The core unit of compute is no longer a micro-invocation — it is a session.**
-
-The assumptions that made serverless attractive — stateless, ephemeral, sub-second — are exactly the assumptions agents violate.
-
-<!-- TODO: illustration — a spectrum of runtime environments from left (serverless/edge: no filesystem, no shell, stateless) to right (full VM/container: persistent filesystem, shell, long-lived session). Show which agent capabilities are available at each point on the spectrum. -->
+Part 5 examines what these runtime choices look like in practice — through real architectures.
 
 ## A note on security
 
@@ -725,38 +712,254 @@ If you choose "stop immediately," implementation is simpler — no background pr
 - **The onion model clarifies what you build.** The SDK gives you the core. Transport, routing, persistence, and lifecycle are the layers you add — or get pre-built from something like OpenCode.
 
 
-# Part 5 — Where can it run? Environment constraints without ideology
+# Part 5 — Architecture by example
 
-**Main question:** What host capabilities decide whether an agent system fits in local, server, container, or serverless?
+**What do the concepts from Parts 3 and 4 look like when assembled into real systems?**
 
-- The practical checklist (workspace/FS, subprocess/shell, long-lived process, network access).
-- Explain why some SDKs “assume Bash” and what breaks without it.
+Parts 3 and 4 gave us vocabulary. Bash and the filesystem are the agent's capabilities (Part 3). The onion model — core, transport, routing, persistence, lifecycle — describes the service layers you build around those capabilities (Part 4).
 
-# Part 6 — Capstone: design a schema-editing assistant that finishes
+This section walks through four real projects, ordered from simplest to most complex. Each one implements a different subset of the onion. The progression shows how complexity grows with requirements — not with ambition.
 
-**Main question:** How do you avoid infinite clarification/repair loops while keeping a good UX?
+## Claude in the Box — the minimum
 
-- A concrete protocol for progress:
-  - patches_ready + one blocking question + parked assumptions
-  - explicit acceptance stop condition
-- Compare what changes when:
-  - orchestration is app-driven vs agent-driven
-  - agent is a service vs a feature
+**The entire service boundary is ~100 lines of code.**
 
----
+Claude in the Box is a project by Craig Dennis (Cloudflare Developer Educator) that wraps the Claude Agent SDK inside a Cloudflare Worker. You submit a URL via HTTP, a sandbox spins up, the agent runs to completion inside it, and the output is collected. Then the sandbox is destroyed.
 
-## Note on how this aligns with the original proposal
+```
+Browser → HTTP POST /api/tutorial/stream
+  → Cloudflare Worker (Hono, ~100 lines)
+    → getSandbox() → Durable Object
+      → Ubuntu Container
+        → Claude Agent SDK query()
+          → Anthropic API
+    ← streams stdout back to browser
+    → reads artifacts (fetched.md, review.md)
+    → stores in KV
+    → destroys sandbox
+```
 
-Current structure:
+Two endpoints. One creates a sandbox, runs the agent, and streams progress. The other retrieves the stored results.
 
-- (1) What's an agent → Part 1
-- (2) Where orchestration lives (+ harness) → Part 2
-- (3) Bash and filesystem → Part 3
-- (4) Service boundary → Part 4
-- (5) Where can it run → Part 5 (outline)
-- (6) Capstone → Part 6 (outline)
+**Part 3 inside the box.**
+The agent gets a full Ubuntu environment: Bash, Read, Write, Edit, WebSearch. Isolation is at the container boundary, not at the tool level — the agent can do anything inside its sandbox. It writes output files (`fetched.md`, `review.md`) to the container filesystem. The Worker reads them back after execution and stores them in KV.
 
-If you want, we can add a small "Where are we on the 2×2?" callout box at the start/end of each part so the diagram is an index, not just an illustration.
+**Part 4 around the box.**
+
+| Onion layer | Implementation |
+|-------------|----------------|
+| Transport | HTTP streaming (`Transfer-Encoding: chunked`). Unidirectional — client cannot send input during execution. |
+| Routing | Two static routes. No session IDs. |
+| Persistence | KV for final artifacts only. No conversation history. |
+| Lifecycle | Ephemeral. Create → run → collect → destroy. |
+
+No authentication. No conversation management. No job queue. No retry logic. No cost controls.
+
+**This is a job agent, not a chatbot.**
+Each HTTP request is an independent, complete execution. The human provides input and receives output; there is no back-and-forth during execution. You submit a URL and wait. The agent runs autonomously — deciding what tools to use, what steps to take — until it is done.
+
+The lesson is what Cloudflare provides versus what the developer builds. Cloudflare provides container orchestration, VM isolation, the exec/file APIs, and KV storage. The developer builds the thin glue: an HTTP endpoint that maps a request to an agent execution, a streaming bridge (sandbox stdout → HTTP response), and artifact collection (read files → store in KV).
+
+The entire service boundary is glue code. That is the minimum.
+
+## sandbox-agent — the adapter
+
+**The next problem: how do you talk to a coding agent over HTTP instead of a terminal?**
+
+Rivet's sandbox-agent is a Rust binary that runs *inside* a sandbox and provides a universal HTTP+SSE API. Your application connects to it from outside. The daemon manages agent processes (Claude Code, Codex, OpenCode, Amp), translates their different native protocols into a single event stream, and handles human-in-the-loop workflows.
+
+```
+Your App (anywhere)
+    |
+    | HTTP + SSE
+    v
++--[sandbox boundary]-------------------+
+|                                        |
+|  sandbox-agent (Rust daemon, port 2468)|
+|       |            |           |       |
+|       v            v           v       |
+|    claude        codex      opencode   |
+|  (subprocess)  (JSON-RPC)  (HTTP srv)  |
+|                                        |
+|  [filesystem, bash, git, tools...]     |
++----------------------------------------+
+```
+
+**The problem it solves is protocol normalization.**
+
+Each coding agent speaks a different language. Claude Code reads JSONL from stdout. Codex uses JSON-RPC over stdio, multiplexing sessions through thread IDs. OpenCode runs its own HTTP server. Amp outputs a different JSONL variant. sandbox-agent translates all of these into a single universal event schema:
+
+```json
+{
+  "event_id": "evt_42",
+  "sequence": 42,
+  "session_id": "my-session",
+  "source": "agent",
+  "synthetic": false,
+  "type": "item.completed",
+  "data": { ... }
+}
+```
+
+Events have monotonically increasing sequence numbers. Clients track their last-seen sequence and use it as an offset to resume. When agents don't emit certain lifecycle events, the daemon synthesizes them — marked with `"source": "daemon"` and `"synthetic": true"`.
+
+**The API separates sending from receiving.**
+
+`POST /sessions/:id/messages` is fire-and-forget (returns 204). Events come back via a separate SSE stream at `GET /sessions/:id/events/sse`. This decoupling is the critical design choice — it enables long-running agent operations, reconnection after temporary disconnects, and multiple clients observing the same session.
+
+**Human-in-the-loop becomes asynchronous HTTP.**
+
+When the agent wants to run a command and needs approval, the daemon translates the agent's blocking permission prompt into an asynchronous flow:
+
+1. Agent emits a permission request in its native format.
+2. Daemon converts it to a `permission.requested` event and broadcasts it via SSE.
+3. Client sees the request and decides.
+4. Client sends `POST /sessions/:sid/permissions/:pid/reply` with `"once"`, `"always"`, or `"reject"`.
+5. Daemon routes the reply back to the agent — over stdin for Claude, JSON-RPC for Codex, HTTP for OpenCode.
+6. Daemon emits a `permission.resolved` event.
+
+This is the same human-in-the-loop concept from Part 2's harness, but expressed as a REST API instead of a terminal prompt.
+
+**What it deliberately skips.**
+
+| Onion layer | Implementation |
+|-------------|----------------|
+| Transport | HTTP + SSE (via axum). Decoupled send/receive. |
+| Routing | Session IDs, agent dispatch. Linear lookup (fine for dozens of sessions). |
+| Persistence | **None.** Sessions are in-memory `Vec<SessionState>`. Events are in-memory `Vec<UniversalEvent>`. |
+| Lifecycle | Session scoped. When the daemon restarts, everything is gone. |
+
+No persistence is a deliberate choice. The project's documentation says it directly: "Sessions are already stored by the respective coding agents on disk. It's assumed that the consumer is streaming data from this machine to an external storage."
+
+The offset-based event pagination exists precisely for this — external systems consume the stream and persist it wherever they want (Postgres, ClickHouse, or Rivet's own Actor platform). The daemon is ephemeral middleware, not a database.
+
+**Where it sits on the onion.**
+
+sandbox-agent implements transport and routing. It skips persistence and lifecycle entirely. It adds something Claude in the Box does not have: bidirectional communication during execution (for HITL) and multi-agent support. But it does not solve the "agent keeps running after you close your browser" problem. The daemon lives and dies with its sandbox.
+
+## Ramp Inspect — the full production stack
+
+**What does it look like when you implement all the layers?**
+
+Ramp's internal coding agent, Inspect, reached ~30% of all merged pull requests within months. The architecture: OpenCode (a Go-based agent) running inside Modal sandboxed VMs, with Cloudflare Durable Objects for session routing and state, and multiple thin clients — Slack, a web UI, a Chrome extension, and a web-based VS Code.
+
+```
+Clients (Slack, Web UI, Chrome Extension, VS Code)
+  → WebSocket → Cloudflare Workers (edge routing)
+    → Durable Object (per session: SQLite, WebSocket Hub)
+      → Modal Sandbox VM (agent, full dev environment)
+        → Filesystem Snapshots (state persistence)
+```
+
+**Part 3 at full scale.**
+Each session gets a sandboxed VM with everything a Ramp engineer would have: git, npm, pytest, a Postgres database, Vite, Chromium, integrations with Sentry and LaunchDarkly. The agent runs real commands — `npm test`, database queries, Chromium screenshots. Images are rebuilt every 30 minutes from the main branch so each new session starts with near-current code and pre-installed dependencies.
+
+Eric Glyman, Ramp's CEO: "Generating output is easy. Feedback is everything." The agent does not just propose diffs. It iterates with real tests, real telemetry, and real visual checks until the evidence says the change is correct.
+
+**Every onion layer implemented.**
+
+| Onion layer | Implementation |
+|-------------|----------------|
+| Transport | WebSocket. Real-time bidirectional streaming. Multiple clients connect to the same session simultaneously. |
+| Routing | Cloudflare Durable Objects. Each session maps to a unique DO ID with guaranteed global affinity. |
+| Persistence | Two layers. Durable Objects (SQLite): conversation context, session metadata. Modal filesystem snapshots: code, dependencies, build artifacts, VM state. |
+| Lifecycle | Background-first. Client disconnect does not stop the agent. On completion: Slack notification or GitHub PR. |
+
+**Background continuation is the core design principle.**
+
+This is the feature that separates Ramp from the previous two examples. The Modal sandbox runs independently of any client connection. Close the tab, switch to Slack, reopen the web UI — the same session is there, still running or already finished.
+
+Durable Objects enable this. The DO is the session's permanent identity: it routes WebSocket connections, stores conversation context in embedded SQLite, and manages the event stream. When all clients disconnect, the DO hibernates — it saves cost but keeps the WebSocket alive. When a client reconnects, the DO wakes up and replays missed events.
+
+Modal VMs are ephemeral (24-hour maximum TTL). State outlives compute through two mechanisms: the DO's SQLite for conversation data, and Modal's snapshot API for the full VM filesystem. This means you can freeze a session — code, dependencies, build artifacts, environment variables, everything — and restore it days later.
+
+**Ephemeral compute, persistent state.**
+
+No permanent VMs. Compute is disposable. State lives in Durable Objects and filesystem snapshots. This is the dominant pattern across all serious agent architectures, and Ramp implements it most completely.
+
+## Cloudflare Moltworker — the platform provides the layers
+
+**What happens when the infrastructure absorbs the onion?**
+
+Moltworker is an open-source project that runs the OpenClaw personal AI agent on Cloudflare's Developer Platform. It is a proof of concept — but it demonstrates something architecturally distinct from the previous examples: the platform itself provides most of the service layers.
+
+Cloudflare's agent infrastructure has four tiers:
+
+1. **Workers** — V8 isolates. Stateless, no filesystem, millisecond startup. The entrypoint.
+2. **Durable Objects** — Workers with persistent identity. Embedded SQLite, WebSocket with hibernation.
+3. **Containers** — Full Linux VMs, paired with a Durable Object as sidecar. Startup in minutes.
+4. **Sandbox SDK** — Developer-friendly API over Containers: `sandbox.exec()`, `sandbox.readFile()`, `sandbox.writeFile()`.
+
+```
+Internet → Cloudflare Access (Zero Trust)
+  → Entrypoint Worker (V8 isolate, API router)
+    → Sandbox SDK → Durable Object (sidecar, lifecycle)
+      → Container (isolated Linux VM)
+        → /data/moltbot → R2 Bucket (via s3fs)
+        → Agent Runtime (Node.js)
+  → AI Gateway (LLM proxy: caching, rate limiting)
+```
+
+**The "programmable sidecar" pattern.**
+
+This is Cloudflare's distinctive contribution. The Durable Object acts as a lightweight, always-on control plane for the heavyweight, ephemeral container. It is not a Kubernetes sidecar — it is the routing and state layer, written in application code.
+
+The DO manages the container's lifecycle (sleep after idle, wake on request), routes WebSocket connections, stores conversation state in embedded SQLite, and persists through container restarts. The container does the work (runs the agent, executes bash, writes files). When the container sleeps, the DO survives.
+
+**Two-tier filesystem.**
+The container gets a full Linux filesystem — ephemeral, wiped on sleep. For persistent storage, an R2 bucket is mounted at `/data/moltbot` via s3fs. Session memory, conversation history, and artifacts live there. The R2 bucket survives everything.
+
+**The onion layers, mapped.**
+
+| Onion layer | Implementation |
+|-------------|----------------|
+| Transport | WebSocket (Agents SDK, with hibernation). HTTP for the entrypoint Worker. |
+| Routing | Durable Object instance IDs. Globally routable — all requests for the same ID reach the same physical location. |
+| Persistence | Multi-layer. DO in-memory state, DO SQLite, DO KV storage, R2 object storage, container ephemeral disk. |
+| Lifecycle | Agent survives client disconnection. DO hibernates without dropping the WebSocket. Cron schedules enable fully autonomous execution. |
+
+**The developer writes application code, not infrastructure.**
+
+Compare this to Ramp. Ramp's architecture involves Cloudflare Workers for edge routing, Durable Objects for session management, Modal VMs for compute, Modal snapshots for persistence, and custom glue between all of them. The team built the control plane.
+
+With Moltworker, the platform provides the control plane. The Sandbox SDK handles container lifecycle. Durable Objects handle routing and state. R2 handles persistence. The developer writes the agent logic and the glue between these services — on a $5/month Workers Paid plan.
+
+The trade-off is coupling. Ramp can swap out Modal for another VM provider. Moltworker is built on Cloudflare's specific abstractions: the Sandbox SDK's API, Durable Objects' routing model, R2's storage semantics. The platform absorbs complexity, but the exit cost is real.
+
+## What the examples reveal
+
+**A comparison across the four architectures:**
+
+| | Claude in the Box | sandbox-agent | Ramp Inspect | Moltworker |
+|---|---|---|---|---|
+| **What it is** | Job runner | Agent adapter | Background agent | Personal agent |
+| **Lines of service glue** | ~100 | ~6,500 | Custom platform | Platform-native |
+| **Agent** | Claude Agent SDK | Claude, Codex, OpenCode, Amp | OpenCode | OpenClaw |
+| **Transport** | HTTP streaming | HTTP + SSE | WebSocket | WebSocket |
+| **Routing** | None | Session IDs, in-memory | Durable Objects | Durable Objects |
+| **Persistence** | KV (artifacts only) | None (by design) | DO SQLite + VM snapshots | DO SQLite + R2 |
+| **Lifecycle** | Ephemeral (destroy after run) | Ephemeral (dies with sandbox) | Background continuation | Background + hibernation |
+| **HITL during execution** | No | Yes (async HTTP) | Yes (via clients) | Yes |
+| **Multi-client** | No | SSE observers | Multiplayer WebSocket | WebSocket Hub |
+| **Bash + filesystem** | Full (container) | Full (sandbox) | Full (VM) | Full (container) |
+
+Five observations:
+
+**Every architecture gives the agent a full machine.** Whether it is a Cloudflare Container, a Modal VM, a Docker sandbox, or a local process — bash and filesystem access are present in all of them. This is not a coincidence. It is the consequence of Part 3: agents need a runtime that supports composition (bash) and persistence (filesystem). No one has found a shortcut.
+
+**The service boundary determines the complexity budget.** Claude in the Box is ~100 lines because it skips most onion layers. Ramp built a full platform because it needs all of them. sandbox-agent is in between — it tackles the hard problem of protocol normalization but deliberately avoids persistence. The choice of which layers to implement is the primary architectural decision.
+
+**Background continuation is the dividing line.** Claude in the Box and sandbox-agent both die when their process dies. Ramp and Moltworker both keep running when the client disconnects. The jump from "session tied to connection" to "agent runs independently" is where the architecture gets significantly more complex — it requires persistent routing (Durable Objects), state that outlives compute (snapshots, R2), and reconnection logic.
+
+**Ephemeral compute, persistent state is the dominant pattern.** No one runs permanent VMs. Modal sandboxes have a 24-hour TTL. Cloudflare containers sleep after idle. State lives in databases and object storage. Compute is disposable. This is the "session as a unit of compute" paradigm from Part 3 — but implemented through infrastructure rather than convention.
+
+**The platform decides how much you build.** Ramp built their own control plane — custom Workers, custom DO logic, custom Modal orchestration. Moltworker uses the platform's built-in abstractions. sandbox-agent is platform-agnostic — it runs inside any sandbox. Each approach trades flexibility for effort.
+
+## What to keep in mind
+
+- **You do not need all the layers.** Claude in the Box is useful with just transport. sandbox-agent adds interactive control without any database. Choose complexity based on your actual requirements, not what the most sophisticated example does.
+- **The onion model is a design checklist.** For each layer — transport, routing, persistence, lifecycle — the question is: do you need it? If yes, do you build it or does your platform provide it?
+- **Background continuation is the hardest layer.** It requires the agent process to outlive the client, state to persist across disconnections, and reconnection to work seamlessly. This single requirement drives most of the architectural complexity in Ramp and Moltworker. Decide early whether you need it.
 
 ---
 
