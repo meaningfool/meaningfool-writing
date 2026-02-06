@@ -358,7 +358,13 @@ When there is no developer-defined graph, the harness is what keeps the agent on
 - **Skills**: pre-packaged behaviours and assets the agent can invoke.
 - **Hooks / callbacks** — places the host can intercept or augment behavior: logging, approvals, guardrails.
 
-//note: add a description of the 3 Agent frameworks that we are covering: Claude Agent SDK, Opencode SDK and Pi SDK. Remain high-level and point to part 4 providing more details on their differences
+This report examines three agent SDKs that implement agent-driven control flow:
+
+- **Claude Agent SDK** exposes the Claude Code engine as a library, with all the harness elements above built in.
+- **OpenCode** ships as a standalone Go server with an HTTP API — the harness plus a ready-made service boundary (see Part 4).
+- **Pi SDK** is an opinionated, minimalistic framework. Notably it can work in environments without bash or filesystem access, relying on structured tool calls instead.
+
+Part 4 examines how these three differ in what they provide and what you need to build yourself.
 
 **Note**: Orchestration frameworks are adding modes to create agent-driven control flows:
 - LangChain added "Deep Agents" in July 2025. The `deepagents` package ships all of this as built-in middleware on top of LangGraph.
@@ -385,52 +391,54 @@ If you give it `search_web`, `read_file`, and `send_email`, those are its capabi
 - Want it to resize an image? You need a `resize_image` tool. 
 - Want it to check disk space, parse a CSV, or ping a server? Each one requires a tool.
 
-**Even slight changes in the task require updating the tool set**: 
-- You built a tool to list all your bookmarks. Now you need to exclude the bookmarks with a specific tag. You need to update your tool implementation and its signature. 
-- //note: find more examples
+**Even slight changes in the task require updating the tool set.** Say you built a `send_email(to, subject, body)` tool. Now the user wants to attach a file — you need an `attachments` parameter. Then they want to CC someone — another parameter. Each small requirement change means updating the tool's schema and implementation. And every new version has to be tested, documented, and maintained.
 
-**Designing an effective tool list is hard balance to strike**. Anthropic's guidance on tool design puts it directly: "Too many tools or overlapping tools can distract agents from pursuing efficient strategies." But too few tools, or tools that are too narrow, can prevent the agent from solving the problem at all.
-//note: add the link to the blog post
+**Designing an effective tool list is a hard balance to strike**. Anthropic's [guidance on tool design](https://www.anthropic.com/engineering/writing-tools-for-agents) puts it directly: "Too many tools or overlapping tools can distract agents from pursuing efficient strategies." But too few tools, or tools that are too narrow, can prevent the agent from solving the problem at all.
 
 ## Bash as the universal tool
 
-**Bash is the Unix shell: a command-line interface that has been around since 1989.**
+### Bash is the Unix shell: a command-line interface that has been around since 1989
 
 It is the standard way to interact with Unix-like systems (Linux, macOS). You type commands, the shell executes them, you see the output.
 
+Consider a task like: "find all log files from this week, check which ones contain errors, and count the number of errors in each." With predefined tools, you would need `list_files` with date filtering, `search_file` to find matches, `count_matches` per file — three separate tools, plus the logic to combine the results. With bash:
+
 ```bash
-# Find Python files modified in the last 7 days
-find . -name "*.py" -mtime -7
+# Find log files from the last 7 days
+find . -name "*.log" -mtime -7
 
-# Check which ones import requests
-grep -l "import requests" $(find . -name "*.py" -mtime -7)
+# Which ones contain errors
+grep -l "ERROR" $(find . -name "*.log" -mtime -7)
 
-# Get git blame authors for those files
-for f in $(grep -l "import requests" $(find . -name "*.py" -mtime -7)); do
-  git blame --line-porcelain "$f" | grep "^author " | sort -u
+# Count errors in each
+for f in $(find . -name "*.log" -mtime -7); do
+  echo "$f: $(grep -c 'ERROR' "$f") errors"
 done
 ```
 
-That earlier task — "find Python files modified this week, check which import requests, list their authors" — is three lines of bash.
+Three commands. No tool definitions, no schema changes if the task evolves.
 
-**Why does bash matter for agents?**
+### Why does bash matter for agents?
 
-Because giving an agent bash access is giving it access to the entire Unix environment: file operations, network requests, text processing, program execution, and the ability to combine them in ways you did not anticipate.
+**Bash scripts can replace specialized tools**:
+- Giving an agent bash access is giving it access to the entire Unix environment: file operations, network requests, text processing, program execution
+- And the ability to combine them in ways you did not anticipate.
 
-Vercel tested this directly. Their text-to-SQL agent d0 had 17 specialized tools and achieved an 80% success rate. They ["deleted most of it and stripped the agent down to a single tool: execute arbitrary bash commands."](https://vercel.com/blog/we-removed-80-percent-of-our-agents-tools) The result: 100% success rate, 3.5x faster, 37% fewer tokens. Their conclusion: "The best agents might be the ones with the fewest tools."
+**Vercel achieved 100% success rate. 3.5x faster. 37% fewer tokens** :
+- Their text-to-SQL agent d0 had 17 specialized tools — query builders, schema inspectors, result formatters — and achieved an 80% success rate.
+- Then they ["deleted most of it and stripped the agent down to a single tool: execute arbitrary bash commands."](https://vercel.com/blog/we-removed-80-percent-of-our-agents-tools)
+- The result: one general-purpose tool outperformed seventeen specialized ones.
 
-**Writing scripts instead of making tool calls.**
+### Bash is not just more flexible — it is also faster.
 
-Remember the two-step pattern from Part 1: the model requests a tool call, the system executes it, the result feeds back. For a task requiring ten tool calls, that is ten inference passes — each one reading the entire (growing) context.
+**Each tool call means an additional inference. Calling a lot of tools is expensive**: 
+- Remember the two-step pattern from Part 1: the model requests a tool call, the system executes it, the result feeds back. 
+- For a task requiring ten tool calls, that is ten inference passes, each one reading the entire (growing) context.
 
-With bash, the agent can write a script that chains multiple operations together. Only the final result comes back.
-
-Anthropic measured this directly: token usage dropped from 150,000 to 2,000 — a 98.7% reduction. The CodeAct research paper (ICML 2024) found code-based actions achieved up to 20% higher success rates than JSON-based tool calls.
-//note: add the links
-
-The insight: LLMs have much more training on real code than on tool-calling examples. 
-
-//note : was it not one of the early findings by Manus as well? Also cite code mode from Cloudflare. Always with links.
+**With bash, the agent can write a script that chains multiple operations together and save on intermediate inferences**:
+- The [CodeAct research paper](https://arxiv.org/abs/2402.01030) (ICML 2024) found code-based actions achieved up to 20% higher success rates than JSON-based tool calls.
+- [Anthropic](https://www.anthropic.com/engineering/code-execution-with-mcp) and [Cloudflare's Code Mode](https://blog.cloudflare.com/code-mode/) experiment confirmed that writing code beats tool calling
+- Manus adopted a similar approach from their launch using [fewer than 20 atomic functions](https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus), and offload the real work to generated scripts running inside a sandbox.
 
 ## The filesystem as the universal persistence layer
 
@@ -450,43 +458,29 @@ Manus describes their approach in ["Context Engineering for AI Agents"](https://
 
 > "File System as Extended Memory: The approach treats filesystem storage as 'unlimited in size, persistent by nature, and directly operable by the agent itself.'"
 
-//note: add in the fact that LLMs know very well how to operate in the file system. Add that it can operate as a memory between sessions. 
+**LLMs already know how to use filesystems.** They have been trained on billions of lines of code that reads, writes, and organizes files. File operations are not a new skill the model has to learn — they are among the most common patterns in its training data.
+
+**Files persist for free.** When the agent writes a plan file or a set of notes, that information is available to the next session simply because the file is still on disk. No persistence infrastructure required. No schema migration. No database setup. The filesystem becomes the agent's memory between sessions — "dumb" persistence that works precisely because the agent is smart enough to manage it.
 
 
-## Conclusion
-//note: add a conclusion related to bash and filesystem as they are both taken for granted for all agent SDKs although Pi can explicitly operate without access to the file system.
+## What this means in practice
 
-//note: reorganize the conclusion, maybe put some things back into the previous parts.
+**Bash and the filesystem are assumed by all major agent SDKs.** 
+- The Claude Agent SDK ships Bash, Read, Write, Edit, Glob, and Grep as built-in tools. OpenCode and Codex do the same. These are not optional extras — they are the foundation the agent operates on.
+- Pi SDK is a notable exception: it can work without filesystem access. This makes it suitable for environments where giving the agent a full machine is not an option.
 
-**Not all runtimes have a filesystem or a shell.**
+**Bash is extremely powerful and risky**: 
+- One command can modify or destroy large parts of a system. Credentials can be exfiltrated.
+- Serverless functions and edge workers don't generally support Bash and filesystem operation for security reasons.
+- To "give an agent a machine", there are 2 options: the VPS, a persistent virtual machine. But that's costly. Or ephemeral versions, "sandboxes", which come with their own limitations due to their ephemeral nature. Part 4 examines those architecture considerations.
 
-Serverless functions, edge workers, and similar environments do not provide the primitives agents need. Without a filesystem and a shell, agents cannot compose arbitrary operations and cannot persist intermediate results flexibly.
-
-**The workaround is always the same: give the agent a full machine.**
-
-Cloudflare built the Sandbox SDK on top of Containers. Manus uses E2B (Firecracker microVMs). OpenAI Codex runs each task in its own cloud sandbox. The pattern is consistent: when the runtime does not provide a filesystem and a shell, you give the agent a VM or container that does.
-
-Part 5 examines what these runtime choices look like in practice — through real architectures.
-
-**Bash is an extremely powerful tool surface.**
-
-One command can modify or destroy large parts of a system. Credentials in environment variables or files can be exfiltrated. Small allowlists can be bypassed via composition — pipes, redirection, subshells.
-
-The mitigations are well-understood:
-- Sandboxing and isolation (container, VM, or platform-level enforcement).
-- Approval gates for destructive commands.
-- Least-privilege credentials and read-only mounts.
-- Timeouts and resource limits.
-
-Security is not a reason to avoid the pattern. It is a reason to invest in the harness — which is exactly what Part 2 described.
+//note : is my claim about serverless not supporting bash / filesystem correct / accurate?
 
 ## What to keep in mind
 
-Three points from this section:
-
 - **Bash is a universal tool.** Instead of anticipating every capability and implementing a specific tool, you give the agent access to the Unix environment. It can compose arbitrary operations from basic primitives — and LLMs are already trained on how to do this.
 - **The filesystem is universal persistence.** Instead of defining schemas for what the agent can store, you give it a directory. It can write any file type, organize however makes sense, and the files persist across sessions for free.
-- **This has architectural consequences.** Bash and filesystem access require a runtime that supports them. Serverless and edge environments do not. The workaround — containers, VMs, sandboxes — represents a shift from "functions as units of compute" to "sessions as units of compute."
+- **This has architectural consequences.** Bash and filesystem access require a runtime that provides them. Serverless and edge environments do not. The workaround — containers, VMs, sandboxes — represents a shift from "functions as units of compute" to "sessions as units of compute."
 
 
 # Part 4 — The service boundary
