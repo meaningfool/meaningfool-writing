@@ -214,28 +214,39 @@ To understand what "orchestration" means, we have to look at how things started 
 <!-- TODO: illustration — progression from single prompt → prompt chain → workflow with tools → agent loop. A horizontal timeline or staircase showing the progression. Reference: the "historical ladder" from Anthropic's "Building Effective Agents" blog post. -->
 
 1️⃣ **At first, people would build one massive prompt and submit it to the LLM.**
-They would cram all the instructions, context, examples, and output format into a single call and hope the LLM would get it right in one pass.
+They would cram all the instructions, context, examples, and output format into a single call and hope the LLM would get it right in one pass. Using the restaurant example from Part 1:
+
+> "You are a restaurant assistant. When the user asks for a restaurant, search the web for options near the specified location, then look up reviews for each result, then check availability for the best-rated one, then write a friendly recommendation with available time slots. Format your response as a short paragraph. The user says: Italian food near 123 Main St for Friday evening, party of 4."
+
+Everything in one shot: the task description, the steps, the formatting, the input.
 
 **This was brittle:**
-- LLMs  were unreliable on tasks that require multiple steps or intermediate reasoning.
-- Long prompts produced less predictable output: some parts of the prompt would get overlooked or confuse the model. The longer the prompt, the less consistent the results over multiple runs. 
-- Long prompts were easy to break: even small changes could alter dramatically the behaviour. 
+- LLMs were unreliable on tasks that require multiple steps or intermediate reasoning.
+- Long prompts produced less predictable output: some parts of the prompt would get overlooked or confuse the model. The longer the prompt, the less consistent the results over multiple runs.
+- Long prompts were easy to break: even small changes could alter dramatically the behaviour.
 
 This made massive prompts hard to fix and improve.
 
-2️⃣ **Getting better results meant break things down.**
+2️⃣ **Getting better results meant breaking things down.**
 Instead of one monolithic prompt, you split the task into smaller steps — each with its own prompt, its own expected output, and its own validation logic. The output of step 1 feeds into step 2, and so on.
+
+The restaurant task becomes: 
+> Step 1 — parse the user request into structured data. 
+> Step 2 — search for restaurants. 
+> Step 3 — rank by reviews. 
+> Step 4 — check availability. 
+> Step 5 — format the response. Each step has a focused prompt, and you can fix or improve one step without breaking the others.
 
 **This is prompt chaining**: a sequence of LLM calls where each step has a narrow, well-defined responsibility.
 
 3️⃣ **Then tools enter the picture.**
 Once you add tool calling (Part 1), each step in the chain can now do real work — query a database, search the web, validate data against an API. The chain becomes a **workflow**: a sequence of steps, some of which involve LLM calls, some of which invoke tools, connected by routing logic.
 
-4️⃣ **And now we have frameworks to get rid of the workflows**: we trust the agent to do it all. We are somewhat back to 1️⃣ but with the addition of tool calling and much better (thinking) models. 
+4️⃣ **With better models, another option emerged**: instead of defining the workflow step by step, give the agent tools and a goal, and let it figure out the steps on its own. We are somewhat back to 1️⃣ — one prompt, one call — but with the addition of tool calling and much better (thinking) models. This is agent-driven control flow, and it coexists with workflows rather than replacing them.
 
-Building such workflows means deciding about the structure / the flow of actions that lead towards the realization of the outcome. That's what orchestration means.
+Whether you define the workflow yourself (steps 2️⃣ and 3️⃣) or let the agent figure it out (step 4️⃣), someone has to decide the structure — the sequence of actions that leads to the outcome. That's what orchestration means.
 
-> **Orchestration** is the logic that structures the flow — the sequence of steps, the transitions between them, and how the next step is determined.
+> **Orchestration** is the logic that structures the flow: the sequence of steps, the transitions between them, and how the next step is determined.
 
 This section focuses on the question: **who owns that logic? who owns the control flow?**
 
@@ -246,12 +257,10 @@ This section focuses on the question: **who owns that logic? who owns the contro
 
 **Within the app-driven control flow, the app owns the state machine**:
 
-- The developer, define the graph: the nodes (steps), the edges (transitions), the routing logic. 
+- The developer defines the graph: the nodes (steps), the edges (transitions), the routing logic.
 - The LLM is a component called within each step but the app enforces the flow defined by the developer.
 
-<!-- TODO: illustration — the email-triage workflow graph: START → Read Email → Classify Intent → [Doc Search | Bug Track | Human Review] → Draft Reply → [Human Review | Send Reply] → END. This is the diagram you pasted. Show the nodes as boxes with arrows indicating transitions and branching. -->
-
-//note update the todo as suggested
+<!-- TODO: illustration — app-driven restaurant workflow graph: START → Parse Request → Search Restaurants → Get Reviews → Check Availability → Format Response → END. Show the nodes as boxes with arrows indicating the fixed sequence defined by the developer. -->
 
 
 Anthropic's ["Building Effective Agents"](https://www.anthropic.com/research/building-effective-agents) blog post catalogs several variants of app-driven control flow:
@@ -262,8 +271,7 @@ Anthropic's ["Building Effective Agents"](https://www.anthropic.com/research/bui
 - **Evaluator-optimizer** — one LLM generates, another evaluates, in a loop.
 
 **Orchestration frameworks provide the infrastructure for building these workflows.** They abstract the plumbing so that developers can focus on the workflow logic. More specifically they handle:
-- The tool calls, retries, timeouts, and error handling.
-- Feeding results back into the next model call.
+- Parsing tool calls, feeding results back into the next model call.
 - Stop conditions, error handling, retries, timeouts.
 
 Here is schematically how the developer would implement the restaurant reservation workflow:
@@ -282,13 +290,27 @@ workflow.add_route("check_avail"  → "respond")
 
 result = workflow.run("Italian restaurant near the office, Friday, 4 people")
 ```
-On top of that, he would have to define functions for each of the tools made available, such as `search_restaurants`, `fetch_reviews`, `check_availability`, and `format_response`.
+On top of that, the developer defines the functions for each step. For example, `search_restaurants` might use the LLM internally to parse search results:
 
-//note add pseudo code illustrating defining one of these functions.
+```
+function search_restaurants(query, location):
+    raw_results = web_search(query + " near " + location)
+    parsed = llm("Extract restaurant names and addresses from: " + raw_results)
+    return parsed
+```
 
-// note: add a comparison between the frameworks we have listed. Let's keep it high-level. What I have in mind: PydanticAI and LangGraph are both python, while Mastra and Vercel SDK are both javascript. PydanticAI is type safe, and the nodes in the graph are actual schemas. Vercel SDK used to be more low-level (focusing on the tool loop + AI gateway to provide a unified interface for all LLMs), but v6 introduced more agent/ workflow features. Mastra build on top of Vercel SDK. Spawn research agents to validate / invalidate my points and add more meaningful traits if relevant.
+How the main orchestration frameworks compare:
 
-// note: in the last commit there was a part about typical signs of app-driven control flow. Put it here, at the end ot the app-driven control flow part, pointing to the fact that there are more frameworks than the ones cited above.
+- **LangGraph** (Python + TypeScript) was the first such framework. You wire every node and edge by hand. 
+- **PydanticAI** (Python) takes a different approach: graph transitions are defined as return type annotations on nodes, so the type checker enforces valid transitions at write-time. 
+- **Vercel AI SDK** (Typescript) started as a low-level tool loop + unified provider layer, then added agent abstractions in v5-v6 (2025). 
+- **Mastra** (Typescript) builds on top of Vercel AI SDK — it delegates model routing and tool calling to the AI SDK and adds the application layer on top (workflows, memory, evaluation).
+
+There are other such orchestration frameworks. Cues to recognize app-driven control flows:
+- Explicit stage transitions in code or config.
+- Multiple different prompts or schemas per stage.
+- The app decides when to request user input.
+- The model may call tools *within* a step, but the **macro progression** is app-owned.
 
 ## Agent-driven control flow
 
@@ -328,7 +350,7 @@ Typical signs of agent-driven control flow:
 
 ## The harness
 
-The harness is term designating all the assets and capabilities provided to the agent to steer it towards the expected outcome:
+When there is no developer-defined graph, the harness is what keeps the agent on track. It is the set of assets and capabilities provided to the agent to steer it towards the expected outcome:
 
 - **System prompts, policies and instructions (in agent.md or similar)**: the rules of the road: what to do, what not to do, how to behave.
 - **Tools**: what pre-packaged tools are available to search, fetch, edit, run commands, apply patches.
