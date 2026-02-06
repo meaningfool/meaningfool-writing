@@ -490,21 +490,18 @@ PostgreSQL is hosted. It runs as a separate server process. Your application con
 
 Same domain (relational database), two packaging modes.
 
-**Why does this matter for agents?**
-
-Because the Claude Agent SDK is a library. It gives you the agent loop — but it runs in your process, with your lifecycle. If you want something like ChatGPT or Claude.ai — where you can close your browser, come back later, and the agent is still there — you need to cross a service boundary.
-
 <!-- TODO: illustration — two diagrams side by side. Left: "Library (embedded)" showing app → function call → agent loop → result, all in one box labeled "same process". Right: "Service (hosted)" showing client → HTTP/WebSocket → [boundary line] → server → agent loop, with the boundary line clearly marked. -->
 
-## Service boundaries by example
+## What an agent SDK is
 
-**Start with what you know: Claude Code on your laptop.**
+**The Claude Agent SDK is Claude Code packaged as a library.**
 
-You type a command. The agent runs. You see the output. When you close your terminal, the agent is gone.
+The same capabilities you use interactively in Claude Code — sending a prompt, resuming a conversation, controlling which tools the agent can use — become functions you call from your own code:
 
-This is embedded mode. The agent runs in the same process as the CLI. No service boundary.
-
-**The Claude Agent SDK exposes the same engine as a library.**
+- **`query(prompt)`** — the main entry point. Send a prompt, get back a stream of messages. This is the equivalent of typing a message in Claude Code.
+- **`sessionId`** — resume a previous conversation. Pass a session ID and the agent picks up where it left off, with full context.
+- **`allowedTools`** — control what the agent can do. Restrict it to `["Read", "Edit"]` for read-and-edit-only, or give it `["Bash", "Read", "Write", "Edit"]` for full access.
+- **Hooks** — intercept the agent's behavior. Get notified before or after a tool call, log actions, add approval gates.
 
 ```python
 from claude_agent_sdk import query
@@ -516,102 +513,92 @@ async for message in query(
     print(message)
 ```
 
-This still runs on your laptop, in your script's process. You call a function, the agent runs, you get a result. Still embedded, still no service boundary.
+This runs in your process. When your script ends, the agent ends. No service boundary.
 
-Why would you want this?
-- **Automation.** Run the agent without human interaction.
-- **Integration.** Embed agent capabilities in your own application.
-- **Custom tools.** Add domain-specific tools via MCP or SDK hooks.
-- **Structured output.** Get machine-readable results instead of terminal text.
+## When you'd use an SDK
 
-**Next: run the agent elsewhere, triggered by an event.**
+**Packaging the agent as a library opens up uses that the CLI cannot support:**
+- **Automation** — trigger the agent from code, on a schedule, or in response to events — no human in the loop.
+- **Integration** — embed agent capabilities inside an existing application.
+- **Custom tooling** — extend the agent with domain-specific tools via MCP or SDK hooks.
+- **Structured output** — get machine-readable results instead of terminal text.
 
-GitHub Actions is a good example. You run Claude Agent SDK in a CI job — when a PR is opened, the agent runs tests, analyzes code, or generates documentation. The job container is ephemeral (destroyed after the job ends), but that is fine for one-shot automation.
+**Example: automated code review in CI.**
 
-Still no service boundary in the traditional sense. The agent runs, produces output, exits. You are not connecting to it — you are triggering it.
+You run the Claude Agent SDK in a GitHub Actions job. When a PR is opened, the agent reviews the code, runs tests, and posts comments. The job container is ephemeral — created for the run, destroyed after. The agent runs to completion and exits.
 
-**Now: something like ChatGPT or Claude.ai — for yourself.**
+No service boundary. The agent is triggered, does its work, and is gone.
 
-The requirements change:
-- Access from anywhere, not just your laptop or a CI job
-- Close your browser, come back later, continue the conversation
-- See the agent's progress in real-time as it works
-- Maybe multiple people connecting to the same conversation
+**Example: a Slack bot that answers questions.**
 
-This is when you cross the service boundary. The agent runs in a separate process. You connect to it over the network. The agent's lifecycle is decoupled from yours.
+A bot listens for messages in a Slack channel. When someone asks a question, the bot calls `query()` with the message, the agent runs, and the bot posts the response. Each message is an independent agent invocation — the agent starts, responds, and exits.
 
-**You cannot just put the SDK on a server and call it done.**
+The bot itself runs as a server (it receives Slack webhooks). But the agent inside it is still embedded — a function call within the request handler, not a separate process. No agent service boundary.
 
-The SDK gives you the agent loop — the core engine. But turning a library into a service changes what you need to provide:
+**In both cases, the agent runs within the host process.** It starts, does its work, and stops. No independent lifecycle. No reconnection. No background continuation.
 
-| Library (embedded) | Service (hosted) |
-|-------------------|------------------|
-| Function calls | Protocol/API design |
-| Simplest deployment (one process) | Process lifecycle (start/stop/health) |
-| One process, one debugger | Distributed debugging |
-| No network failure modes | Timeouts, retries, partial failures |
-| — | Auth/security boundaries |
-| — | API versioning |
+## When you need a service boundary
 
-You run it as a service **only when you need the benefits of a separate host process** — multiple clients, isolation, independent updates — not because it is "more correct."
+**The requirements change when the agent must outlive the client:**
+- Access from anywhere, not just a CI job or a bot on your server.
+- Close your browser, come back later, and find the agent still running — or finished.
+- Multiple people connecting to the same agent session.
+- Real-time progress as the agent works.
 
-## The onion model
+This is when the agent's lifecycle must be decoupled from the client's. The agent runs in a separate process. You connect to it over the network. You disconnect, and it keeps going.
 
-**Think of it like layers of an onion.**
+**You cannot just put the SDK on a server and call it done.** The SDK gives you the agent loop. It does not handle what comes with running a process that other people connect to over a network:
+- **Authentication** — who is allowed to talk to this agent, and how do you verify that?
+- **Network resilience** — clients disconnect, requests timeout, connections drop mid-stream. The library assumes a stable in-process caller.
+- **Protocol design** — what format do messages take? HTTP request/response? Server-sent events for streaming? WebSocket for bidirectional communication?
 
-At the core is the agent loop — the LLM, tools, and the loop that connects them. The Claude Agent SDK (TypeScript) and py-sdk (Python) give you this core.
+**These are not agent problems — they are service problems.** And they are what the next section addresses.
+
+## What you need to build: the onion model
+
+**Think of it like layers of an onion.** At the core is the agent loop — the LLM, tools, and the loop that connects them. The Claude Agent SDK (TypeScript) and py-sdk (Python) give you this core.
 
 Around the core are the service layers — what you build to turn the library into something usable behind a service boundary:
 
-- **Transport.** How client and server communicate: HTTP request/response, HTTP + SSE (streaming), or WebSocket (bidirectional).
-- **Routing.** Finding the right conversation: session IDs, request → process mapping.
-- **Persistence.** Keeping state between requests: messages, artifacts, traces.
-- **Lifecycle.** What happens when the client disconnects: stop immediately, keep running, or timeout after a grace period.
+**Transport** — how client and server communicate:
+- HTTP request/response for simple call-and-wait.
+- HTTP + SSE (Server-Sent Events) for streaming the agent's output in real time.
+- WebSocket for bidirectional communication — the client can send input while the agent is working.
+
+**Routing** — finding the right conversation:
+- Session IDs that map each request to the correct agent process.
+- A registry that knows which sessions exist and where they are running.
+
+**Persistence** — keeping state between requests:
+- Messages, artifacts, and traces need to survive across connections.
+- If your runtime persists (VPS, long-running container), the runtime itself can be your persistence — the Claude Agent SDK saves sessions to disk automatically.
+- If your runtime is ephemeral, you need to explicitly save and reload state.
+
+**Lifecycle** — what happens when the client disconnects:
+- Stop immediately — simplest to implement, but the agent's work is lost.
+- Keep running in the background — the agent finishes, results are waiting when you reconnect.
+- Timeout after a grace period — a middle ground.
+- Background continuation is the feature that drives most of the architectural complexity.
 
 <!-- TODO: illustration — concentric circles (onion diagram). Inner circle: "Agent loop (Claude Agent SDK, py-sdk)". Next ring: "Session management". Next ring: "Transport (HTTP/WS)". Next ring: "Routing". Outer ring: "Persistence, lifecycle". Label the whole thing: "What you build with SDK-first". Then show OpenCode as a pre-assembled version with all layers included. -->
 
-**SDK-first: you build the layers.**
+### SDK-first vs server-first
 
-The SDK gives you:
-- The agent loop
-- Built-in tools (Read, Write, Edit, Bash, Glob, Grep)
-- Session management with disk persistence
-- Conversation history tracking
-- Hooks for custom behavior
-
-You build:
-- HTTP/WebSocket server
-- Request routing
-- Database integration (if needed)
-- Authentication
-- Lifecycle policies
+**SDK-first (Claude Agent SDK): you build the layers.**
+- The SDK gives you: the agent loop, built-in tools, session management with disk persistence, conversation history, and hooks.
+- You build: HTTP/WebSocket server, request routing, database integration, authentication, and lifecycle policies.
 
 **Server-first (OpenCode): the layers come pre-built.**
+- OpenCode ships as a server with an HTTP API. Session routing, streaming, cancellation — all included.
+- You build clients (CLI, IDE plugins, web apps), not the service layer.
 
-OpenCode ships as a server with an HTTP API. Session routing, streaming, cancellation — all included. You build clients (CLI, IDE plugins, web apps), not the service layer.
-
-The trade-off:
-- **SDK-first** gives you control but requires more work
-- **Server-first** gives you structure but less flexibility
-
-**A note on persistence.**
-
-If your runtime persists (VPS, long-running container, VM snapshots), the runtime *is* your persistence. The Claude Agent SDK saves sessions to disk automatically.
-
-If your runtime is ephemeral (serverless, fresh container per request), you need to explicitly save messages, artifacts, and optionally traces. When the user returns, you load the state back into the SDK.
-
-**A note on lifecycle.**
-
-The expectation for a ChatGPT-like experience: the agent keeps running in the background. Close the tab, come back later, results are waiting.
-
-This requires infrastructure: the agent process must outlive the client connection, you need a way to reconnect and see what happened, you need policies for timeouts.
-
-If you choose "stop immediately," implementation is simpler — no background process management. But the UX is different.
+**The trade-off:**
+- **SDK-first** gives you control but requires more work.
+- **Server-first** gives you structure but less flexibility.
 
 ## What to keep in mind
 
 - **Library vs service is the fundamental question.** The same capability — the agent loop — can run embedded (in your process) or hosted (behind a service boundary). The choice depends on whether you need independent lifecycle, multiple clients, or remote access.
-- **The progression is real.** Claude Code → Claude Agent SDK → behind a service boundary. Each step adds complexity. You do not need to jump to the end.
 - **The onion model clarifies what you build.** The SDK gives you the core. Transport, routing, persistence, and lifecycle are the layers you add — or get pre-built from something like OpenCode.
 
 
