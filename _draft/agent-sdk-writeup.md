@@ -442,45 +442,26 @@ Three commands. No tool definitions, no schema changes if the task evolves.
 
 ## The filesystem as the universal persistence layer
 
-**Persisting information requires tools**
+To persist an information, a user-facing artifact, a plan or intermediate results, an agent needs a tool and a storage mechanism. 
 
-Whether it is a user-facing artefact or agent helpers such as plan or intermediate results, the agent needs tooling to do so and a destination. 
+**Predefined persistence tools have the same problem as predefined action tools:**
+- A `save_note(title, content)` tool works for text notes. But what about images? JSON structures? Binary files? A directory of related files?
+- The tool's schema defines and limits what can be stored. Each storage mechanism has its own interface, its own constraints.
 
-If you provide a `save_note(title, content)` tool, the agent can save text notes to a database (a KV store, or relational DB for instance) But what if it needs to save an image? A JSON structure? A binary file? A directory of related files?
+**The filesystem has no predefined schema:**
+- A file can contain anything: Markdown, JSON, images, binaries, code. A directory can organize files however makes sense. 
+- The agent decides where to put it, what to write, what to name it, how to structure it.
 
-The tool's schema defines and limits what can be stored. And each storage mechanism has its own interface, its own constraints, its own limitations.
-
-**The filesystem has no predefined schema.**
-
-A file can contain anything: Markdown, JSON, images, binaries, code. A directory can organize files however makes sense. The agent decides what to write, what to name it, how to structure it.
-
-Manus describes their approach in ["Context Engineering for AI Agents"](https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus):
-
-> "File System as Extended Memory: The approach treats filesystem storage as 'unlimited in size, persistent by nature, and directly operable by the agent itself.'"
-
-**LLMs already know how to use filesystems.** They have been trained on billions of lines of code that reads, writes, and organizes files. File operations are not a new skill the model has to learn — they are among the most common patterns in its training data.
-
-**Files persist for free.** When the agent writes a plan file or a set of notes, that information is available to the next session simply because the file is still on disk. No persistence infrastructure required. No schema migration. No database setup. The filesystem becomes the agent's memory between sessions — "dumb" persistence that works precisely because the agent is smart enough to manage it.
-
-
-## What this means in practice
-
-**Bash and the filesystem are assumed by all major agent SDKs.** 
-- The Claude Agent SDK ships Bash, Read, Write, Edit, Glob, and Grep as built-in tools. OpenCode and Codex do the same. These are not optional extras — they are the foundation the agent operates on.
-- Pi SDK is a notable exception: it can work without filesystem access. This makes it suitable for environments where giving the agent a full machine is not an option.
-
-**Bash is extremely powerful and risky**: 
-- One command can modify or destroy large parts of a system. Credentials can be exfiltrated.
-- Serverless functions and edge workers don't generally support Bash and filesystem operation for security reasons.
-- To "give an agent a machine", there are 2 options: the VPS, a persistent virtual machine. But that's costly. Or ephemeral versions, "sandboxes", which come with their own limitations due to their ephemeral nature. Part 4 examines those architecture considerations.
-
-//note : is my claim about serverless not supporting bash / filesystem correct / accurate?
+**The filesystem allows the agent to communicate with itself**:
+- The agent can store information that it may need further down the road. Manus describes this as ["File System as Extended Memory"](https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus): "unlimited in size, persistent by nature, and directly operable by the agent itself."
+- The filesystem also allows the agent to share memories between sessions, removing the need for elaborate memorization / retrieval tools.
 
 ## What to keep in mind
 
 - **Bash is a universal tool.** Instead of anticipating every capability and implementing a specific tool, you give the agent access to the Unix environment. It can compose arbitrary operations from basic primitives — and LLMs are already trained on how to do this.
 - **The filesystem is universal persistence.** Instead of defining schemas for what the agent can store, you give it a directory. It can write any file type, organize however makes sense, and the files persist across sessions for free.
-- **This has architectural consequences.** Bash and filesystem access require a runtime that provides them. Serverless and edge environments do not. The workaround — containers, VMs, sandboxes — represents a shift from "functions as units of compute" to "sessions as units of compute."
+- **All major agent SDKs assume both.** The Claude Agent SDK, OpenCode, and Codex all ship bash and filesystem tools as built-in. Pi SDK is a notable exception — it can work without filesystem access.
+- **This has architectural consequences.** Bash and filesystem access require a runtime that provides them. The workaround — containers, VMs, sandboxes — represents a shift from "functions as units of compute" to "sessions as units of compute."
 
 
 # Part 4 — The service boundary
