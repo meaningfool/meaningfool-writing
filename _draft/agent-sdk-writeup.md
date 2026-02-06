@@ -358,6 +358,8 @@ When there is no developer-defined graph, the harness is what keeps the agent on
 - **Skills**: pre-packaged behaviours and assets the agent can invoke.
 - **Hooks / callbacks** — places the host can intercept or augment behavior: logging, approvals, guardrails.
 
+//note: add a description of the 3 Agent frameworks that we are covering: Claude Agent SDK, Opencode SDK and Pi SDK. Remain high-level and point to part 4 providing more details on their differences
+
 **Note**: Orchestration frameworks are adding modes to create agent-driven control flows:
 - LangChain added "Deep Agents" in July 2025. The `deepagents` package ships all of this as built-in middleware on top of LangGraph.
 - PydanticAI lists "Deep Agents" as a first-class multi-agent pattern — planning, filesystem operations, task delegation, sandboxed code execution. 
@@ -374,29 +376,25 @@ Three points from this section:
 
 ## The limits of predefined tools
 
-**In the agentic loop from Part 1, tools define what the agent can do.**
+**Tools define what the agent can do.**
 
-The agent can only act through the tools you provide. If you give it `search_web`, `read_file`, and `send_email`, those are its capabilities. Nothing more.
+If you give it `search_web`, `read_file`, and `send_email`, those are its capabilities. Nothing more.
 
-This creates a constraint: every capability must be anticipated and implemented in advance. Want the agent to compress a file? You need a `compress_file` tool. Want it to resize an image? You need a `resize_image` tool. Want it to check disk space, parse a CSV, or ping a server? Each one requires a tool.
+**Every capability must be anticipated and implemented in advance**:
+- Want the agent to compress a file? You need a `compress_file` tool. 
+- Want it to resize an image? You need a `resize_image` tool. 
+- Want it to check disk space, parse a CSV, or ping a server? Each one requires a tool.
 
-**The problem compounds as tasks get more complex.**
+**Even slight changes in the task require updating the tool set**: 
+- You built a tool to list all your bookmarks. Now you need to exclude the bookmarks with a specific tag. You need to update your tool implementation and its signature. 
+- //note: find more examples
 
-Consider an agent that needs to "find all Python files modified this week, check which ones import the requests library, and list their authors from git blame." With predefined tools, you might need:
-- `list_files` with date filtering
-- `read_file` to check imports
-- `git_blame` to get authors
-- Logic to combine the results
+**Designing an effective tool list is hard balance to strike**. Anthropic's guidance on tool design puts it directly: "Too many tools or overlapping tools can distract agents from pursuing efficient strategies." But too few tools, or tools that are too narrow, can prevent the agent from solving the problem at all.
+//note: add the link to the blog post
 
-And if the task changes slightly — "also exclude test files" — you either need a new tool or need to update the existing one.
+## Bash as the universal tool
 
-**Every abstraction layer reduces autonomy.**
-
-The more specific your tools, the more you constrain what the agent can do. Anthropic's guidance on tool design puts it directly: "Too many tools or overlapping tools can distract agents from pursuing efficient strategies." But too few tools, or tools that are too narrow, can prevent the agent from solving the problem at all.
-
-## Bash as a universal tool
-
-**Bash is the Unix shell — a command-line interface that has been around since 1989.**
+**Bash is the Unix shell: a command-line interface that has been around since 1989.**
 
 It is the standard way to interact with Unix-like systems (Linux, macOS). You type commands, the shell executes them, you see the output.
 
@@ -421,29 +419,28 @@ Because giving an agent bash access is giving it access to the entire Unix envir
 
 Vercel tested this directly. Their text-to-SQL agent d0 had 17 specialized tools and achieved an 80% success rate. They ["deleted most of it and stripped the agent down to a single tool: execute arbitrary bash commands."](https://vercel.com/blog/we-removed-80-percent-of-our-agents-tools) The result: 100% success rate, 3.5x faster, 37% fewer tokens. Their conclusion: "The best agents might be the ones with the fewest tools."
 
-**The Unix philosophy aligns with how LLMs work.**
+**Writing scripts instead of making tool calls.**
 
-Unix was designed around small tools that do one thing well, connected by text streams. An LLM is, in a sense, exactly the user Unix was designed for — it can read documentation, reason about commands, and compose small operations into larger workflows.
+Remember the two-step pattern from Part 1: the model requests a tool call, the system executes it, the result feeds back. For a task requiring ten tool calls, that is ten inference passes — each one reading the entire (growing) context.
 
-Boris Cherny, founding engineer of Claude Code, [described](https://newsletter.pragmaticengineer.com/p/how-claude-code-is-built) watching the agent explore a codebase:
+With bash, the agent can write a script that chains multiple operations together. Only the final result comes back.
 
-> "Claude exploring the filesystem was mindblowing...it would read one file, look at the imports, then read files defined in imports."
+Anthropic measured this directly: token usage dropped from 150,000 to 2,000 — a 98.7% reduction. The CodeAct research paper (ICML 2024) found code-based actions achieved up to 20% higher success rates than JSON-based tool calls.
+//note: add the links
 
-No tool predicted this behavior. The agent used basic primitives — read, list, search — and composed them into an investigation strategy.
+The insight: LLMs have much more training on real code than on tool-calling examples. 
 
-<!-- TODO: illustration — contrast between (left) an agent with many predefined tools, each a narrow capability, vs (right) an agent with bash, which can compose arbitrary operations. Show the same task accomplished both ways. -->
+//note : was it not one of the early findings by Manus as well? Also cite code mode from Cloudflare. Always with links.
 
-## The filesystem as universal persistence
+## The filesystem as the universal persistence layer
 
-**The same constraint applies to storage.**
+**Persisting information requires tools**
 
-In the agentic loop, if the agent needs to persist something — an intermediate result, a plan, an artifact — it needs a tool to do so. And that tool's schema defines what can be stored.
+Whether it is a user-facing artefact or agent helpers such as plan or intermediate results, the agent needs tooling to do so and a destination. 
 
-If you provide a `save_note(title, content)` tool, the agent can save text notes. But what if it needs to save an image? A JSON structure? A binary file? A directory of related files?
+If you provide a `save_note(title, content)` tool, the agent can save text notes to a database (a KV store, or relational DB for instance) But what if it needs to save an image? A JSON structure? A binary file? A directory of related files?
 
-**Traditional approaches fragment state.**
-
-Databases require schemas. Key-value stores require string values. Logging systems capture events but not artifacts. Each storage mechanism has its own interface, its own constraints, its own limitations.
+The tool's schema defines and limits what can be stored. And each storage mechanism has its own interface, its own constraints, its own limitations.
 
 **The filesystem has no predefined schema.**
 
@@ -453,55 +450,13 @@ Manus describes their approach in ["Context Engineering for AI Agents"](https://
 
 > "File System as Extended Memory: The approach treats filesystem storage as 'unlimited in size, persistent by nature, and directly operable by the agent itself.'"
 
-Claude Code uses this in practice. A `CLAUDE.md` file at the project root contains high-level context:
+//note: add in the fact that LLMs know very well how to operate in the file system. Add that it can operate as a memory between sessions. 
 
-```markdown
-# CLAUDE.md
 
-## Project overview
-This is a REST API built with FastAPI. The main entry point is src/main.py.
+## Conclusion
+//note: add a conclusion related to bash and filesystem as they are both taken for granted for all agent SDKs although Pi can explicitly operate without access to the file system.
 
-## Commands
-- Run tests: pytest tests/
-- Start server: uvicorn src.main:app --reload
-```
-
-A scratchpad directory holds session-specific notes:
-
-```markdown
-# scratchpad/plan.md
-
-## Current task: Fix authentication bug
-
-### What I know
-- Tests failing in tests/test_auth.py
-- Error: "Token expired" even for fresh tokens
-
-### Investigation steps
-1. [x] Read the failing test
-2. [x] Read the token validation code
-3. [ ] Check timezone handling in token creation
-```
-
-**Files persist for free.**
-
-When the agent creates a plan file, that information is available to the next session simply because the file is still on disk. No persistence infrastructure required. No schema migration. No database setup.
-
-This is "dumb" persistence that works precisely because the agent is smart enough to manage it.
-
-## A note on code execution
-
-**Bash access enables a further optimization: writing scripts instead of making tool calls.**
-
-Remember the two-step pattern from Part 1: the model requests a tool call, the system executes it, the result feeds back. For a task requiring ten tool calls, that is ten inference passes — each one reading the entire (growing) context.
-
-With bash, the agent can write a script that chains multiple operations together. Only the final result comes back.
-
-Anthropic measured this directly: token usage dropped from 150,000 to 2,000 — a 98.7% reduction. The CodeAct research paper (ICML 2024) found code-based actions achieved up to 20% higher success rates than JSON-based tool calls.
-
-The reason is straightforward: LLMs have been trained on billions of lines of real-world code. They have been trained on a tiny, synthetic set of tool-call examples. They are better at writing bash or Python than at formatting JSON tool invocations.
-
-## What this means for architecture
+//note: reorganize the conclusion, maybe put some things back into the previous parts.
 
 **Not all runtimes have a filesystem or a shell.**
 
@@ -512,8 +467,6 @@ Serverless functions, edge workers, and similar environments do not provide the 
 Cloudflare built the Sandbox SDK on top of Containers. Manus uses E2B (Firecracker microVMs). OpenAI Codex runs each task in its own cloud sandbox. The pattern is consistent: when the runtime does not provide a filesystem and a shell, you give the agent a VM or container that does.
 
 Part 5 examines what these runtime choices look like in practice — through real architectures.
-
-## A note on security
 
 **Bash is an extremely powerful tool surface.**
 
