@@ -607,19 +607,20 @@ Part 5 walks through real projects to illustrate how agents are assembled from d
 **Cloud services**: Cloudflare Worker + Cloudflare Sandbox
 **Layers**: transport + artifacts persistence 
 **Link**: 
+// note: add a link to the project Github
 
 **Description**:
 - **This is a job agent, not a chatbot.** No conversation, no back-and-forth during execution, no session to resume.
 - **Use case**: a job that is best performed by an agent, i.e. extract structured data from a document.
-- **User journey**: 1- Client sends a prompt to the Agent URL, 2- Client receives an ID, 3- Client retrieves the produced artifact using the ID
 - A ~100-line project that wraps the Claude Agent SDK.
 
-// note: please clarify the user journey and the technical flow : does the client wait for agent completion to get the answer to its http request? Clarify who writes the artifact and where and how it is accessed
+**User journey:** the client sends a POST request with a prompt and stays connected. The response streams back in real time — the user watches the agent's progress as it works. When the agent finishes, the results are available immediately. There is no polling, no job ID, no second request.
 
-Technical flow:
-- The client submits an HTTP POST request to a Worker. 
-- The Worker spins up a Sandbox that contains the Cloud Agent SDK. 
-- The agent runs to completion inside it, writes output files, and the sandbox is destroyed.
+**Technical flow:**
+- The Worker receives the POST and spins up a Cloudflare Sandbox (an isolated Ubuntu container).
+- The agent runs inside the sandbox using the Claude Agent SDK's `query()` function. It reads, writes files, runs bash commands — all within the container.
+- The agent's stdout is streamed back through the Worker to the client as chunked HTTP.
+- When the agent finishes, the Worker reads the output files (e.g. `fetched.md`, `review.md`) from the sandbox filesystem, stores them in Cloudflare KV, and destroys the sandbox.
 
 ```
 Browser → HTTP POST
@@ -636,12 +637,11 @@ Browser → HTTP POST
 - Cloudflare provides container orchestration, VM isolation, file/exec APIs, and KV storage.
 - The developer writes glue: an HTTP endpoint, a streaming bridge (sandbox stdout → HTTP response), and artifact collection (read files → store in KV).
 
-**What it skips:** authentication, conversation management, job queuing, retry logic, cost controls. The entire service boundary is ~100 lines of glue code.
+// note: let's explain why we need all the different bricks. And not assume that the reader knows about those bricks. We are not giving a course but highlighting what they are good for in the context of the use case and why they can't assume other roles. For example, we want to explain why Worker cannot run Claude Agent SDK and that we have to have a Sandbox on top of it
 
-// note: rewrite what is skipped based on the revised part 4
+**What it skips:** no authentication (anyone can call the endpoint), no routing (no session IDs, no conversations to switch between), no persistence of conversation state (only final artifacts are saved), and no lifecycle management (the agent dies with the request — if the client disconnects, the work is lost).
 
-**The lesson:** not every agent needs all the layers. A job that runs to completion and returns a result is a perfectly valid use case — and it needs almost no service infrastructure.
-
+// note: make a table with what it skips what it implements for each of the dimensions identified in part 4
 ## sandbox-agent — the adapter
 
 **How do you talk to a coding agent over HTTP instead of a terminal?**
