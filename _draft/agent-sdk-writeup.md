@@ -31,7 +31,7 @@ But before placing anything on that map, we need to agree on what an "agent" act
 
 ---
 
-# Part 1 — What's an agent, anyway?
+# Part 1 - What's an agent, anyway?
 
 **An agent is an LLM running tools in a loop.**
 
@@ -201,13 +201,11 @@ Three points from this section that carry through the rest of the report:
 
 ---
 
-# Part 2 — Where orchestration lives
+# Part 2 - Where orchestration lives
 
 In part 2 we examine the difference between the *Orchestration frameworks* and the *Agent SDKs*. The limit between the 2 can be tenuous, especially with the orchestration frameworks venturing into the Agent SDK's space.
 
 Who is responsible for the orchestration? That's where the difference lives. 
-
-To understand what "orchestration" means, we have to look at how things started and evolved.
 
 ## How we got here
 
@@ -378,7 +376,9 @@ Three points from this section:
 - **Orchestration frameworks handle the plumbing.** Whether you choose app-driven or agent-driven, frameworks give you the loop, tool wiring, and error handling so you can focus on the logic — not on parsing JSON and managing retries.
 - **In agent-driven systems, the harness replaces the graph.** The agent has more freedom, but it is not unsupervised. System prompts, permissions, skills, and hooks are what steer it. The harness is the developer's control surface when there is no explicit workflow.
 
-# Part 3 — Bash and the filesystem
+# Part 3 - 2 tools to rule them all: Bash and the filesystem
+
+Agent SDKs assume access to Bash and the filesystem. These tools provide powerful options. But they also impose some architectural requirements.
 
 ## The limits of predefined tools
 
@@ -464,44 +464,46 @@ To persist an information, a user-facing artifact, a plan or intermediate result
 - **This has architectural consequences.** Bash and filesystem access require a runtime that provides them. The workaround — containers, VMs, sandboxes — represents a shift from "functions as units of compute" to "sessions as units of compute."
 
 
-# Part 4 — The service boundary
+# Part 4 - Agent SDK to Agent Server: crossing the service boundary
 
-## Libraries and services
+Agent SDKs are libraries. They run on your machine, inside your application. When your application stops, the agent stops.
 
-**The same capability can be packaged two ways.**
+This works well for many use cases. But if you want to build something like ChatGPT — where the agent runs on a server, keeps working after you close the tab, and is accessible from anywhere — you need an agent server.
 
-Think of any software component — a database, an image processor, an agent loop. You can deliver it as:
+Part 4 explains the difference between the two, and what you need to build to get from one to the other.
 
-1. **A library (embedded).** The capability runs inside your application's process. You call it with a function call. When your process ends, it ends.
+## What's an SDK anyway
+### Libraries and services
 
-2. **A service (hosted).** The capability runs in a separate process — maybe on the same machine, maybe remote. You call it with messages over some protocol. It can outlive your connection.
+**Think of the difference between Excel and Google Sheets.**
 
-The distinction is not "desktop vs server" or "local vs cloud." It is:
+An Excel spreadsheet lives on your machine. Nobody else can see it while you're working. It exists on your machine and only your machine.
 
-> Is this capability called by function calls in the same process, or by messages across a process boundary?
+Google Sheets lives on Google's servers. You open it in a browser, but the spreadsheet is not on your machine. You can close your browser and it's still there. You can open it from your phone, from another laptop, share it with colleagues who edit it at the same time. Google Sheets keeps running whether or not you're connected.
 
-That process boundary is the **service boundary**.
+Same capability (a spreadsheet), two ways to package it:
 
-**A familiar example: databases.**
+1. **Embedded** — runs on your machine. Excel, a calculator app, a file on your disk. When your machine is off, it's off.
 
-SQLite is embedded. Your application links the library, calls functions directly. No service boundary. When your app exits, SQLite exits.
+2. **Hosted** — runs on someone else's machine. Google Sheets, ChatGPT, your email. You connect to it over the network. It keeps going after you disconnect.
 
-PostgreSQL is hosted. It runs as a separate server process. Your application connects over a socket, sends SQL as messages, receives results. Service boundary. PostgreSQL keeps running after your app disconnects.
+The boundary between your machine and the remote one is the **service boundary**.
 
-Same domain (relational database), two packaging modes.
+Note: after the google sheet example, go back to a more generic definition, in order not to be incorrect.
 
-<!-- TODO: illustration — two diagrams side by side. Left: "Library (embedded)" showing app → function call → agent loop → result, all in one box labeled "same process". Right: "Service (hosted)" showing client → HTTP/WebSocket → [boundary line] → server → agent loop, with the boundary line clearly marked. -->
+Note: re-introduce the database example which was good (look up previous commits)
 
-## What an agent SDK is
+<!-- TODO: illustration — two diagrams side by side. Left: "Embedded" showing your machine with the app inside it. Right: "Hosted" showing your machine connecting over the network to a server with the app inside it. The network connection is the service boundary. -->
 
-**The Claude Agent SDK is Claude Code packaged as a library.**
+### What is the difference between an Agent SDK and "Agent"
 
-The same capabilities you use interactively in Claude Code — sending a prompt, resuming a conversation, controlling which tools the agent can use — become functions you call from your own code:
-
+An Agent SDK provides the same kind of capabilities you would expect from a general agent, and furthermore from a coding agent: send a prompt and get an answer, jump from one conversation to another, manage tool permissions,...
 - **`query(prompt)`** — the main entry point. Send a prompt, get back a stream of messages. This is the equivalent of typing a message in Claude Code.
 - **`sessionId`** — resume a previous conversation. Pass a session ID and the agent picks up where it left off, with full context.
 - **`allowedTools`** — control what the agent can do. Restrict it to `["Read", "Edit"]` for read-and-edit-only, or give it `["Bash", "Read", "Write", "Edit"]` for full access.
 - **Hooks** — intercept the agent's behavior. Get notified before or after a tool call, log actions, add approval gates.
+
+//note: rewrite the block above with a list of capabilities with the technical terms (name of the function) coming second
 
 ```python
 from claude_agent_sdk import query
@@ -512,10 +514,15 @@ async for message in query(
 ):
     print(message)
 ```
+// Note: add a comment at the top of coding block to explain what this does, i.e. send a prompt to Claude Agent SDK with a list of allowed tools.
+
+**The Claude Agent SDK is Claude Code packaged as a library.**
+
+The same capabilities you use interactively in Claude Code — sending a prompt, resuming a conversation, controlling which tools the agent can use — become functions you call from your own code:
 
 This runs in your process. When your script ends, the agent ends. No service boundary.
 
-## When you'd use an SDK
+### When you'd use an SDK
 
 **Packaging the agent as a library opens up uses that the CLI cannot support:**
 - **Automation** — trigger the agent from code, on a schedule, or in response to events — no human in the loop.
@@ -537,7 +544,9 @@ The bot itself runs as a server (it receives Slack webhooks). But the agent insi
 
 **In both cases, the agent runs within the host process.** It starts, does its work, and stops. No independent lifecycle. No reconnection. No background continuation.
 
-## When you need a service boundary
+## What does an Agent Server offer that an Agent SDK does not?
+
+### When would you need and Agent Server?
 
 **The requirements change when the agent must outlive the client:**
 - Access from anywhere, not just a CI job or a bot on your server.
@@ -554,7 +563,7 @@ This is when the agent's lifecycle must be decoupled from the client's. The agen
 
 **These are not agent problems — they are service problems.** And they are what the next section addresses.
 
-## What you need to build: the onion model
+### What you need to build to go from an Agent SDK to Agent Server?
 
 **Think of it like layers of an onion.** At the core is the agent loop — the LLM, tools, and the loop that connects them. The Claude Agent SDK (TypeScript) and py-sdk (Python) give you this core.
 
