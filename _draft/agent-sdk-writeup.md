@@ -564,29 +564,27 @@ If you want to build a ChatGPT clone, an Agent SDK is a start. But it's not enou
 
 Authentication and network resilience need to be thought through for any client-server application. Agents require additional layers:
 
-**Transport** — how client and server communicate. The choice depends on how you want the user to experience the agent:
-- **HTTP request/response** for job-style agents. Submit a task, wait for the result. The CI code review agent from earlier would work this way — trigger, wait, done.
-- **HTTP + SSE (Server-Sent Events)** for streaming the agent's progress in real time. The user sees the agent thinking and acting as it works — like watching a ChatGPT response appear token by token.
-- **WebSocket** for bidirectional communication. The user can send input while the agent is working — approve a command, redirect mid-task, or collaborate in real time. This is what you need for multi-user sessions where several people connect to the same agent.
+**Transport** — how the user's browser (or app) talks to the agent server. You build an HTTP server that accepts requests and returns agent output. The question is how much real-time interaction you need:
+- **HTTP request/response** — the user submits a task and waits for the complete result. No progress updates while the agent works. 
+- **HTTP + SSE (Server-Sent Events)** — the server streams the agent's output to the user as it happens, but the stream is one-way: server to client. The user watches the agent think and act in real time (like ChatGPT responses appearing token by token) but cannot send anything back until the stream ends.
+- **WebSocket** — a persistent two-way connection. The user can send messages while the agent is working — approve a command, provide clarification, or cancel a task — without waiting for the current stream to finish. WebSocket is also required for multiple people to connect to the same session.
 
-// note: can you have bidirectional communications with HTTP only? Be more specific about what is SSE: does it mean you receive some kind of partials but cannot send anything until it's done? Does it have anything to do with the ability to send interruption commands? For websocket, should be clearer what it solves based on SSE additional info. But why is it needed from multi-user sessions?
+**Routing** — how each message reaches the right conversation. 
+- Think of the ChatGPT sidebar: you have multiple conversations, you can switch between them, and each new message goes to the one you're looking at. 
+- You build this by assigning a session ID to each conversation and maintaining a registry — a lookup table that maps session IDs to agent processes. 
+- When a message comes in, the server looks up the session ID and forwards the message to the right place.
 
-**Routing** — finding the right conversation. When multiple users each have their own agent sessions running on your server, every request needs to reach the right one:
-- **Session IDs** that map each request to the correct agent process.
-- **A registry** that knows which sessions exist and where they are running. For a single-server deployment, this can be an in-memory map. For a distributed system, you need something like Cloudflare Durable Objects or a database.
+**Persistence** — how conversations can be accessed and resumed later.
+- The user closes the tab, reopens it the next day. They expect to find their conversation history, the artifacts the agent created, and have the ability to continue where they left off. 
+- You build this by "persisting" the conversation state (messages, context, artifacts). Unless the runtime is run without interruption that means saving the state and reloading it when the user reconnects. 
+- Part 5 shows how different projects solve this differently.
 
-// note: how is it related to multiple users? Even a single user that needs to access former sessions needs that, and if they resume conversation, each message needs to be sent to the right conversation. Try to be closer to the user experience to explain the differences, for all the items
+**Lifecycle** — what happens when the user closes the tab while the agent is working. With the SDK alone, the agent dies with your process. To change that, you build lifecycle management: the agent runs in its own process (or container), decoupled from the client connection. You decide the policy:
+- **Stop immediately** — simplest. The agent stops when the user disconnects. Fine for short tasks like the agentic search example.
+- **Keep running in the background** — the agent finishes on its own, and results are waiting when the user reconnects. This is what makes tools like Ramp's Inspect compelling: close the tab, come back later, find a finished PR. Building this means running agent processes that persist independently, monitoring their status, and notifying the user on completion.
+- **Timeout after a grace period** — a middle ground. The agent keeps running for a set period, then stops to avoid runaway costs.
 
-**Persistence** — keeping state across connections. When a user disconnects and reconnects, they expect to find their conversation and the agent's work intact:
-- If your runtime persists (VPS, long-running container), the runtime itself can be your persistence — the Claude Agent SDK saves sessions to disk automatically.
-- If your runtime is ephemeral (serverless, containers that spin down), you need to explicitly save and reload state to an external store — a database, object storage, or filesystem snapshots.
-// note: be more specific about what persistence mean in terms of user experience. I'm thinking we should kick the VPS / persisting runtimes vs ephemeral runtimes conversation to the next part
-
-**Lifecycle** — what happens when the client disconnects. This is the decision with the most architectural impact:
-- **Stop immediately** — simplest to implement, but the agent's work is lost. Fine for short tasks like the agentic search example.
-- **Keep running in the background** — the agent finishes, results are waiting when you reconnect. This is what makes Ramp's Inspect and similar tools compelling: close the tab, come back later, find a finished PR. It is also what drives most of the architectural complexity.
-- **Timeout after a grace period** — a middle ground for tasks where you want to avoid runaway costs.
-//note: it's unclear how lifecycle is some additional layer you have to build. What exactly do you have to build? Be specific here and in all the items above
+//note: it says you need to decide, but it's still unclear whether you need to build something to make any of these options happen. Let's say you have implemented all of the things above lifecycle. If you don't get lifecycle, what do you have? And what do you need to do concretely to add lifecycle? 
 
 <!-- TODO: illustration — concentric circles (onion diagram). Inner circle: "Agent loop (Claude Agent SDK, py-sdk)". Next ring: "Session management". Next ring: "Transport (HTTP/WS)". Next ring: "Routing". Outer ring: "Persistence, lifecycle". Label the whole thing: "What you build with SDK-first". Then show OpenCode as a pre-assembled version with all layers included. -->
 
@@ -598,9 +596,13 @@ Authentication and network resilience need to be thought through for any client-
 
 # Part 5 — Architecture by example
 
-**What do the concepts from Parts 3 and 4 look like when assembled into real systems?**
+Agent Server vs Agent SDK is not a binary decision.
+Given the security concern around giving a computer to your agent, in many cases you want the agent being sandboxed.
+And once you put it behind the service boundary, there are many flavours you can implement, with different ways of doing it. 
 
-This section walks through four projects that use agent SDKs to build different things. Each makes different architectural choices — and skips different layers of the onion. The progression shows that complexity grows with requirements, not with ambition.
+Part 5 goes through a few examples of use cases and the associated architecture, to illustrate how agents may be assembled from multiple technical bricks.
+
+//note: rewrite the intro based on the items provided
 
 ## Claude in the Box — the minimum
 
