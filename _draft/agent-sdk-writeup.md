@@ -462,6 +462,7 @@ To persist an information, a user-facing artifact, a plan or intermediate result
 - **The filesystem is universal persistence.** Instead of defining schemas for what the agent can store, you give it a directory. It can write any file type, organize however makes sense, and the files persist across sessions for free.
 - **All major agent SDKs assume both.** The Claude Agent SDK, OpenCode, and Codex all ship bash and filesystem tools as built-in. Pi SDK is a notable exception — it can work without filesystem access.
 - **This has architectural consequences.** Bash and filesystem access require a runtime that provides them. The workaround — containers, VMs, sandboxes — represents a shift from "functions as units of compute" to "sessions as units of compute."
+- **An alternative is emerging: reimplement the interpreter.** Vercel's [`just-bash`](https://github.com/vercel-labs/just-bash) is a bash interpreter written in TypeScript — 75+ Unix commands reimplemented with a virtual in-memory filesystem. No real shell, no real filesystem, no container needed. It is the tool behind the d0 results cited above. Pydantic's [`monty`](https://github.com/pydantic/monty) does the same for Python: a subset interpreter written in Rust, where `open()`, `subprocess`, and `exec()` simply do not exist. The trade-off is language completeness — neither covers the full language — but when what the agent needs is tool orchestration rather than arbitrary code, that is often enough.
 
 
 # Part 4 - Agent SDK to Agent Server: crossing the service boundary
@@ -838,9 +839,10 @@ Same principle — ephemeral compute, persistent state — but different mechani
 ## What to keep in mind
 
 - **Not every use case needs all the layers.** Claude in the Box ships a useful product with just HTTP streaming and KV storage. sandbox-agent adds interactive control without any database. Choose complexity based on requirements, not what the most sophisticated example does.
-- **Every architecture gives the agent a full machine.** Whether it is a Cloudflare Container, a Modal VM, or a Docker sandbox — bash and filesystem access are present in all of them. This is the consequence of Part 3.
+- **Transport is a spectrum — pick the simplest that fits.** Chunked HTTP for job agents (Claude in the Box), SSE for streaming with reconnection (sandbox-agent), WebSocket for bidirectional interaction and multiplayer (Ramp, Moltworker). Each step up adds capability and complexity.
 - **Background continuation is the hardest layer.** It requires persistent routing, state that outlives compute, and reconnection logic. This single requirement drives most of the architectural complexity in Ramp and Moltworker.
-- **"How do you persist with ephemeral compute?" is the key technology question.** Modal answers with VM snapshots. Cloudflare answers with R2 mounts. Others use volume mounts or external databases. The architectural principle is the same — the implementation depends on your platform.
+- **Coordination and execution are separate concerns.** Both Ramp and Moltworker split the architecture in two: a lightweight coordination layer (Durable Objects) that routes, stores state, and holds WebSocket connections, and a heavyweight execution layer (Modal VM, Cloudflare Container) that runs the agent. The coordinator outlives the compute.
+- **Ephemeral compute, persistent state — same principle, different mechanisms.** Modal answers with VM snapshots. Cloudflare answers with R2 mounts. Others use volume mounts or external databases. The implementation depends on your platform.
 - **The platform decides how much you build.** Ramp built their own control plane. Moltworker uses Cloudflare's built-in abstractions. sandbox-agent is platform-agnostic. Each approach trades flexibility for effort.
 
 ---
