@@ -648,7 +648,7 @@ Browser → HTTP POST
 ```
 
 
-**Highlight: Why Cloudflare requires two layers: Worker + Sandbox?**
+### Highlight: Why Cloudflare requires two layers: Worker + Sandbox?
 
 The Worker is internet-facing. It receives HTTP requests, routes them, and connects to Cloudflare services like KV and Durable Objects. It sleeps between requests and bills only for the time it runs — cheap and instant. But it runs in a V8 isolate — a lightweight JavaScript sandbox with no filesystem, no shell, and a 30-second CPU time limit. It cannot run the Claude Agent SDK.
 
@@ -656,7 +656,7 @@ The Sandbox is the opposite. It is a full Ubuntu container with bash, Node.js, a
 
 Neither can do the whole job alone. The Worker provides the service boundary (HTTP endpoint, streaming, artifact storage). The Sandbox provides the execution environment (bash, filesystem, long-running agent). The ~100 lines of glue between them wire up the HTTP endpoint, bridge the stream, and collect artifacts.
 
-**How it maps to the Part 4 layers:**
+### Server layers implementation
 
 | Layer              | Status                | Implementation                                                                                  |
 | ------------------ | --------------------- | ----------------------------------------------------------------------------------------------- |
@@ -681,8 +681,8 @@ Neither can do the whole job alone. The Worker provides the service boundary (HT
 - The daemon starts inside a sandbox and listens on an HTTP port.
 - The client creates a session via REST, specifying which agent to run (Claude Code, Codex, OpenCode, Amp).
 - The daemon spawns the agent process and translates its native protocol into a universal event schema with sequence numbers.
-- Events stream to the client over SSE. The client tracks its last-seen sequence number.
-- When the agent needs approval (e.g. to run a bash command), the daemon converts the blocking terminal prompt into an SSE event. The client replies via a REST endpoint, and the daemon routes the answer back in the agent's native format.
+- Events stream to the client over SSE. 
+- When the agent needs approval (e.g. to run a bash command), the daemon converts the blocking terminal prompt into an SSE event. The client replies via a REST endpoint.
 - If the client disconnects, it reconnects and resumes from the last-seen sequence number.
 
 ```
@@ -696,48 +696,26 @@ Your App (anywhere)
 +----------------------------------------+
 ```
 
-**Highlight: the Transport layer
+### Highlight: the Transport layer
 
 Transport is how a client and a server exchange data over a network. There is a spectrum of transport modes, from simplest to most capable:
 
-| Mode | How it works | Directionality | Reconnection |
-|------|-------------|----------------|--------------|
-| **HTTP request/response** | Client sends a request, server returns a complete response. | One exchange, then done. | N/A (stateless). |
-| **Chunked HTTP streaming** | Server sends the response in pieces as they become available. The client reads progressively. | Server → client only (one response). | None. Connection drops = data lost. |
-| **Server-Sent Events (SSE)** | Like chunked HTTP, but with structured framing: named event types, event IDs, and built-in automatic reconnection. | Server → client only. Client sends data via separate HTTP requests. | Built-in. Browser reconnects automatically and resumes from last event ID. |
-| **WebSocket** | Persistent, bidirectional connection. Both sides send messages at any time. | Full duplex. | Application must implement. |
-// note: reframe the table in the context of an agent / agent UX
+| Mode | What the user experiences | Interaction | Reconnection |
+|------|--------------------------|-------------|--------------|
+| **HTTP request/response** | Submit a task, wait, get the full result when done. No progress updates while the agent works. | One-shot. | N/A. |
+| **Chunked HTTP streaming** | Submit a task, watch the agent's output stream in real time — like a terminal in the browser. | Watch only — the user cannot send input mid-stream. | None. Connection drops = work lost. |
+| **Server-Sent Events (SSE)** | Same real-time streaming, but the connection survives drops. The browser reconnects automatically and resumes from the last event. | Watch + interact via separate requests (e.g. approve a command via a button click). | Built-in (automatic). |
+| **WebSocket** | Full interaction while the agent works — approve commands, provide context, cancel tasks. Multiple users can watch the same session. | Bidirectional, real-time. | Application must implement. |
 
-Claude in the Box uses chunked HTTP streaming. sandbox-agent outputs SSE (third row). Ramp Inspect uses WebSocket (fourth row). Each step up adds capability and complexity.
+Claude-in-the-Box uses chunked HTTP streaming. sandbox-agent outputs SSE. Ramp Inspect uses WebSocket. Each step up adds capability and complexity.
 
 Now, the agents that sandbox-agent supports speak different native protocols — none of which are network transports:
 
-- **JSONL on stdout** — Claude Code and Codex run as child processes. They write one JSON object per line to stdout. 
-- **JSON-RPC over stdio** — Some agents use a structured request/response protocol over stdin/stdout. Still a local subprocess — not network-accessible.
-  // note: be specific, don't say "some agents", give names
-- **HTTP server** — OpenCode already runs its own HTTP+SSE server (see Part 4). It is network-accessible without translation.
+- **JSONL on stdout** — Claude Code and Amp run as child processes, spawned per message. They write one JSON object per line to stdout.
+- **JSON-RPC over stdio** — Codex runs a persistent server process (`codex app-server`) that communicates via structured JSON-RPC requests and responses over stdin/stdout. Still a local process — not network-accessible.
+- **HTTP server** — OpenCode already runs its own HTTP+SSE server (see Part 4). It is network-accessible without translation. For OpenCode, sandbox-agent is not necessary. 
 
-sandbox-agent converts all of these into one output: **HTTP + SSE with a uniform event schema**.
-For Claude Code and Codex, this translation is essential — without it, the agent has no network-accessible transport at all. For OpenCode, which already has HTTP+SSE, it is convenience — the platform talks to one API regardless of which agent runs inside the sandbox.
-
-```
-Your App (anywhere)
-    |  HTTP + SSE (uniform event schema)
-    v
-+--[sandbox boundary]-------------------------------+
-|  sandbox-agent (Rust daemon)                       |
-|    |              |              |                  |
-|    | JSONL/stdout | JSON-RPC     | HTTP proxy       |
-|    v              v              v                  |
-|  Claude Code    Codex         OpenCode              |
-|  [filesystem, bash, git, tools...]                  |
-+----------------------------------------------------+
-```
-
-
-**What it deliberately skips:** persistence. Sessions are in-memory. The project's documentation says it directly: "Sessions are already stored by the respective coding agents on disk." The daemon is ephemeral middleware — external systems consume the event stream and persist it wherever they want.
-
-**How it maps to the Part 4 layers:**
+### Server layers implementation
 
 | Layer              | Status                | Implementation                                                                                                          |
 | ------------------ | --------------------- | ----------------------------------------------------------------------------------------------------------------------- |
@@ -745,9 +723,8 @@ Your App (anywhere)
 | Network resilience | Partial               | SSE sequence numbers allow clients to reconnect and resume from last-seen event.                                        |
 | Transport          | Implemented           | HTTP + SSE — structured event stream with sequence numbers for reconnection. REST endpoints for approvals/cancellation. |
 | Routing            | Partial               | In-memory session management — multiple sessions per daemon, but no persistent session registry.                        |
-| Persistence        | Two levels             | The daemon's session registry is in-memory — lost if the daemon restarts. But the agents themselves (Claude Code, OpenCode) persist conversations to the sandbox filesystem. So conversation state survives daemon restarts, but not sandbox destruction. |
+| Persistence        | None                   | If the daemon crashes or the sandbox is destroyed, there is no way to recover or reconnect to a conversation.                   |
 | Lifecycle          | Minimal               | Agent process managed by the daemon, but no background continuation beyond the sandbox's lifetime.                      |
-// note: is the deamon capable of re-init from the state saved on the filesystem? If so we don't need to mention the daemon in the Persistence part, since it does not matter
 ## Ramp Inspect — the full production stack
 
 **Agent Framework**: OpenCode
@@ -755,35 +732,37 @@ Your App (anywhere)
 **Layers**: transport + routing + persistence + lifecycle + authentication + network resilience (all layers)
 **Link**: [builders.ramp.com/post/why-we-built-our-background-agent](https://builders.ramp.com/post/why-we-built-our-background-agent)
 
-**Description**:
-- **This is a full production background coding agent — every layer implemented.** Reached ~30% of all merged PRs within months.
-- **Use case**: internal background coding agent that creates pull requests from task descriptions.
-- Ramp's engineering team built a complete hosted service: OpenCode running inside Modal sandboxed VMs, Cloudflare Durable Objects for session routing, and multiple thin clients — Slack, web UI, Chrome extension, VS Code.
+**Description**: Ramp's internal background coding agent that creates pull requests from task descriptions. Reached ~30% of all merged PRs within months.
 
 **User journey:** an engineer describes a task in Slack, the web UI, or a Chrome extension. The agent works in the background — the engineer can close the tab, switch clients, come back later from a different device. When done, the agent posts a PR or a Slack notification. Multiple engineers can watch the same session simultaneously.
 
 **Technical flow:**
-- The client connects via WebSocket to a Cloudflare Worker at the edge.
-- The Worker routes the connection to a Durable Object identified by session ID — guaranteed global affinity.
+- The client connects via WebSocket to a Cloudflare Worker.
+- The Worker routes the connection to a Durable Object identified by session ID.
 - The DO manages the WebSocket hub, stores conversation state in embedded SQLite, and forwards the task to a Modal Sandbox VM.
-- The VM runs OpenCode with a full dev environment: git, npm, pytest, Postgres, Chromium, Sentry integration. Images are rebuilt every 30 minutes so each session starts with near-current code.
+- The VM runs OpenCode with a full dev environment: git, npm, pytest, Postgres, Chromium, Sentry integration.
 - The agent works independently of any client connection. If all clients disconnect, the VM keeps running.
 - On completion, the agent posts results via Slack notification or GitHub PR.
 - VM state — code, dependencies, build artifacts, environment — is preserved through Modal's snapshot API. You can freeze a session and restore it days later, even beyond the 24-hour VM TTL.
+// note: clarify in the chat the difference between session and conversation. What would be stored in DO for a given session?
+//note : what does "manages the WebSocket hub" mean?
+// note: does the article say when snapshots are taken and when the VM is taken down (do they wait for the 24h TTL?)
 
 ```
 Clients (Slack, Web UI, Chrome Extension, VS Code)
-  → WebSocket → Cloudflare Workers (edge routing)
+  → Cloudflare Workers
     → Durable Object (per-session: SQLite, WebSocket Hub, Event Stream)
       → Modal Sandbox VM (OpenCode agent, full dev environment)
-        → Filesystem Snapshots (state persistence)
 ```
 
-**Background continuation is the core design principle.** The Modal sandbox runs independently of any client connection. Close the tab, switch to Slack, reopen the web UI — the session is still there. This is what drives most of the architectural complexity: persistent routing, state that outlives compute, and reconnection logic.
+### Highlight: Durable Objects for distributed persistence
+// note: it's a feeling from previous conversations, and from the observation that Opencode works for a single server, that DOs offer a way to solve that issue. Reframe if need be. Provide some high-level intro to the usefulness of DO in the context of agents. Spawn research agents on Cloudflare blog. If there is a link to be made with their Agent SDK make it, but don't force it. If you see mutilple way to adress this highlight ask me.
+// note: comment on how it helps with re-attach if it does
 
+### Highlight: how persistence works with ephemeral comput
 **How persistence works with ephemeral compute:** Modal VMs have a 24-hour maximum TTL — compute is disposable. State survives through two mechanisms: conversation state lives in Durable Objects (embedded SQLite), and full VM state is preserved through Modal's snapshot API. This is the key technology question: how do you persist state when the machine is ephemeral? Modal answers with filesystem snapshots — a full point-in-time capture of the VM. Not every platform offers this. On Cloudflare, you would need a different approach (see Moltworker below). On bare Docker, you would need volume mounts or external storage.
 
-**How it maps to the Part 4 layers:**
+### Server layers implementation
 
 | Layer | Status | Implementation |
 |-------|--------|----------------|
