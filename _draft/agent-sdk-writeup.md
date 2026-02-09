@@ -779,54 +779,58 @@ A DO is a lightweight JavaScript runtime — it cannot run bash, access a filesy
 
 ## Cloudflare Moltworker — the platform provides the layers
 
-**Agent Framework**: OpenClaw (personal AI agent, 147k+ GitHub stars)
-**Cloud services**: Cloudflare Workers + Durable Objects + Containers (Sandbox SDK) + R2 + AI Gateway
+**Agent engine**: Pi SDK (LLM abstraction + core agent loop)
+**Agent product**: OpenClaw (personal AI assistant built on Pi SDK — multi-channel gateway, session management, skills platform)
+**Cloud services**: Cloudflare Worker + Durable Objects + Sandbox + R2 + AI Gateway
 **Layers**: ALL (transport, routing, persistence, lifecycle, authentication, network resilience)
 **Link**: [github.com/cloudflare/moltworker](https://github.com/cloudflare/moltworker) — blog: [blog.cloudflare.com/moltworker-self-hosted-ai-agent](https://blog.cloudflare.com/moltworker-self-hosted-ai-agent/)
 
-// note: OpenClaw is not an Agent framework. Research better, it's based on Pi SDK. So you need to distinguish between what is provided by OpenClaw on top of Pi SDK, and what Moltworker then provides on top of that
-
-// note: what do you mean by "Containers (Sandbox SDK)", is it a container or a Sandbox? 
-
 **Description**:
-- **This is a self-hosted personal AI agent.** Persistent conversations, background execution, autonomous scheduling.
+- **This is a self-hosted personal AI agent running on Cloudflare.** Persistent conversations, background execution, autonomous scheduling.
+- The stack has three layers: **Pi SDK** provides the agent engine (LLM calls, tool execution, agent loop). **OpenClaw** builds a complete personal assistant on top of Pi — multi-channel inbox (WhatsApp, Telegram, Slack, Discord), its own session management, a skills platform, and companion apps. **Moltworker** is the deployment layer — it packages OpenClaw into a Cloudflare container, handles authentication (Cloudflare Access), persists state to R2, and proxies requests from the internet to the agent.
 
 **User journey:** the user accesses their agent via a browser, protected by Cloudflare Access (Zero Trust). They chat with the agent, which can browse the web, execute code, and remember context across sessions. They can close the browser and come back — conversations persist. The agent can also run autonomously on a cron schedule with no client connected at all.
 
 **Technical flow:**
 - The browser connects through Cloudflare Access, which enforces identity-based authentication before any request reaches the application.
 - The Worker receives the request and routes it to the appropriate Durable Object instance.
-- The Durable Object establishes a WebSocket connection with the client and manages the container lifecycle via the Sandbox SDK.
-- The container (a full Linux VM) runs the OpenClaw agent runtime. It has an R2 bucket mounted at `/data/moltbot` via s3fs for persistent storage.
+- The Durable Object establishes a WebSocket connection with the client and manages the container lifecycle — same pattern as Ramp (DO → compute), but here the compute is a Cloudflare Container instead of a Modal VM. Cloudflare's Sandbox product packages the DO + Container together so the developer doesn't wire the sidecar manually.
+- The container (a full Linux VM) runs the OpenClaw agent. It has an R2 bucket mounted at `/data/moltbot` via s3fs for persistent storage.
 - When the user goes idle, the container sleeps (configurable via `sleepAfter`). The Durable Object hibernates without dropping the WebSocket.
 - On the next message, the DO wakes, the container restarts, and the R2 mount provides continuity — session memory and artifacts survive the restart.
 
 ```
 Internet → Cloudflare Access (Zero Trust)
   → Worker (V8 isolate, API router)
-    → Sandbox SDK → Durable Object (sidecar)
-      → Container (Linux VM)
+    → Durable Object (routing, state, WebSocket)
+      → Container (Linux VM, managed via Sandbox)
         → /data/moltbot → R2 Bucket (via s3fs)
-        → Agent Runtime
+        → OpenClaw (Pi SDK agent)
 ```
 
 ### Highlight: how persistence works with ephemeral compute
-**How persistence works with ephemeral compute:** Modal VMs have a 24-hour maximum TTL — compute is disposable. State survives through two mechanisms: conversation state lives in Durable Objects (embedded SQLite), and full VM state is preserved through Modal's snapshot API. This is the key technology question: how do you persist state when the machine is ephemeral? Modal answers with filesystem snapshots — a full point-in-time capture of the VM. Not every platform offers this. On Cloudflare, you would need a different approach (see Moltworker below). On bare Docker, you would need volume mounts or external storage.
 
-**How persistence works without VM snapshots.** Cloudflare Containers do not have Modal's snapshot API. The container filesystem is wiped on sleep. The workaround: mount an R2 bucket (object storage) at `/data/moltbot` via s3fs. Session memory, conversation history, and artifacts live there. R2 survives everything. The pattern is: ephemeral container for compute, mounted object storage for persistence.
+Both Ramp and Moltworker face the same problem: the agent runs in an ephemeral machine (Modal VM or Cloudflare Container) that will eventually be destroyed. How do you keep state across restarts?
 
-Compare this to Ramp's approach: Ramp uses Modal snapshots to freeze and restore the entire VM state. Moltworker uses a mounted R2 bucket for selective persistence — only what's written to `/data/moltbot` survives. Different technologies, same architectural principle: ephemeral compute, persistent state.
+| | Ramp (Modal) | Moltworker (Cloudflare) |
+|---|---|---|
+| **What dies** | VM is terminated after 24-hour TTL | Container filesystem is wiped on sleep |
+| **Conversation state** | Stored in Durable Object (SQLite) — survives VM restarts | Stored in Durable Object (SQLite) — survives container restarts |
+| **Code, deps, environment** | Modal snapshot API — full point-in-time capture of the VM filesystem. Taken before termination, restored into a fresh VM later. | R2 bucket mounted at `/data/moltbot` via s3fs — everything written there survives. No snapshot, just continuous persistence. |
+| **What survives** | Everything (full VM state frozen and restored) | Only what's explicitly written to `/data/moltbot` |
+| **What's lost** | Nothing (if snapshotted before termination) | Anything on the container filesystem outside the R2 mount |
+| **Trade-off** | Full fidelity but requires snapshot orchestration | Simpler but selective — you must design for it |
 
-**The trade-off is platform coupling.** Ramp can swap out Modal for another VM provider. Moltworker is built on Cloudflare's specific abstractions — Sandbox SDK, Durable Objects, R2. The platform absorbs complexity, but the exit cost is real.
+Same principle — ephemeral compute, persistent state — but different mechanisms. Modal snapshots capture everything automatically. R2 mounts require the application to write important data to the right directory.
 
-// note: re-write the persistence highlight, comparing the Modal VM vs Cloudflare. 
+**The trade-off is platform coupling.** Ramp can swap out Modal for another VM provider — the snapshot API is Modal-specific, but the DO layer is portable. Moltworker is deeply tied to Cloudflare's stack: Sandbox, Durable Objects, R2. The platform absorbs complexity, but the exit cost is real.
 ### Server layers implementation
 
 | Layer              | Status      | Implementation                                                                                             |
 | ------------------ | ----------- | ---------------------------------------------------------------------------------------------------------- |
 | Authentication     | Implemented | Cloudflare Access (Zero Trust) — identity-based access control before any request reaches the application. |
 | Network resilience | Implemented | DO hibernation keeps WebSocket alive during idle periods. Container wakes on next message.                 |
-| Transport          | Implemented | WebSocket (via Agents SDK / Durable Objects) + HTTP API for the entrypoint Worker.                         |
+| Transport          | Implemented | WebSocket (via Durable Objects) + HTTP API for the entrypoint Worker.                                      |
 | Routing            | Implemented | Durable Object instance IDs — globally routable, all requests for same ID reach the same location.        |
 | Persistence        | Implemented | Multi-layer: DO SQLite for conversation, R2 bucket mounted via s3fs for artifacts and session memory.      |
 | Lifecycle          | Implemented | Agent survives client disconnection. DO hibernates. Containers sleep/wake. Cron enables autonomous runs.   |
