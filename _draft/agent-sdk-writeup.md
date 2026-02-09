@@ -650,11 +650,13 @@ Browser → HTTP POST
 
 **Highlight: Why Cloudflare requires two layers: Worker + Sandbox?**
 
-A Cloudflare Worker is a lightweight JavaScript runtime (a V8 isolate). It can handle HTTP requests, run business logic, and talk to Cloudflare services — but it has no filesystem, no bash, and no ability to run long processes. It cannot run the Claude Agent SDK, which needs a full machine with Node.js, a shell, and a filesystem to operate.
+The Worker is internet-facing. It receives HTTP requests, routes them, and connects to Cloudflare services like KV and Durable Objects. But it runs in a V8 isolate — a lightweight JavaScript sandbox with no filesystem, no shell, and a 30-second CPU time limit. It cannot run the Claude Agent SDK.
 
-That's what the Sandbox provides: an isolated Ubuntu container with everything the agent needs. The Worker acts as the front door — it receives the HTTP request, spins up the Sandbox, bridges the stream to the client, and cleans up afterward. The Sandbox is where the actual agent work happens.
+// note: we can highlight its advantage that is that it goes to sleep between requests, and it bills only for the time running.
 
-//note: better delineate the responsibilities without repeating from other parts. State why each one cannot do the whole job on its own
+The Sandbox is the opposite. It is a full Ubuntu container with bash, Node.js, a filesystem, and no time limit — everything the agent needs. But it has no public URL. It cannot receive requests from the internet or talk to Cloudflare services directly.
+
+Neither can do the whole job alone. The Worker provides the service boundary (HTTP endpoint, streaming, artifact storage). The Sandbox provides the execution environment (bash, filesystem, long-running agent). The ~100 lines of glue between them wire up the HTTP endpoint, bridge the stream, and collect artifacts.
 
 **How it maps to the Part 4 layers:**
 
@@ -674,15 +676,11 @@ That's what the Sandbox provides: an isolated Ubuntu container with everything t
 **Link**: [github.com/rivet-dev/sandbox-agent](https://github.com/rivet-dev/sandbox-agent)
 
 **Description**:
-- **This is a protocol adapter, not a platform.** It solves one hard problem — protocol normalization — and leaves everything else to the consumer.
-- **Use case**: universal HTTP API adapter for coding agents — lets any app talk to any coding agent over HTTP instead of a terminal.
+- **This is a transport adapter, not a platform.** It solves one problem — giving every coding agent a unified HTTP+SSE transport — and leaves everything else to the consumer.
+- **Use case**: universal HTTP API for coding agents — lets any app talk to any coding agent over HTTP instead of a terminal.
 - A Rust daemon that runs inside a sandbox and exposes a universal HTTP+SSE API. It manages agent processes and translates their different native protocols (JSONL on stdout, JSON-RPC over stdio, HTTP server) into a single event stream.
 
-//note: one hard problem = transport if we want to stick to the layers previously used
-
-**User journey:** a developer building a coding assistant platform deploys sandbox-agent inside their sandboxes. Their web app connects to it via HTTP+SSE. The app streams agent output and can send approvals or cancellations via REST endpoints. The developer doesn't need to understand each agent's native protocol.
-
-//note: add that this is supposed to work with all sandbox providers, provide a few names
+**User journey:** a developer building a coding assistant platform deploys sandbox-agent inside their sandboxes — E2B, Docker, Fly.io, or any other provider. Their web app connects to it via HTTP+SSE. The app streams agent output and can send approvals or cancellations via REST endpoints. The developer doesn't need to understand each agent's native protocol, and doesn't need to change anything when switching sandbox providers.
 
 **Technical flow:**
 - The daemon starts inside a sandbox and listens on an HTTP port.
@@ -703,15 +701,21 @@ Your App (anywhere)
 +----------------------------------------+
 ```
 
-//note: add a highlight as in the previous part. This one is focused on transport. Use the findings from http-transport-modes.md in research folder to provide some learning material, then state how this project maps the output of libraries to one of the output modes. And note that for opencode it's just for convenience as it does not do anything.
+**Highlight: What "adding transport" means here**
 
-**The problem it solves is protocol normalization.** Each agent speaks a different language — JSONL on stdout, JSON-RPC over stdio, HTTP server. sandbox-agent translates all of these into one universal event schema with sequence numbers. Clients track their last-seen sequence and reconnect from where they left off.
+The agents that sandbox-agent supports communicate in fundamentally different ways. Understanding this requires a brief aside on transport modes:
 
-**Human-in-the-loop becomes an API.** When the agent needs approval for a command, the daemon converts the blocking terminal prompt into an asynchronous HTTP flow: an SSE event broadcasts the request, the client replies via REST, the daemon routes the answer back to the agent in its native format. This is the harness from Part 2, expressed as a REST API.
+- **Subprocess output (stdout)** — Claude Code and Codex run as child processes. They write JSONL to stdout. There is no HTTP server, no network endpoint, no way for a remote client to connect. To make them network-accessible, something must read their stdout and translate it into a network protocol.
+- **Server-Sent Events (SSE)** — a one-way server-to-client protocol on top of HTTP. The server pushes structured events (with named types, IDs, and built-in reconnection). The client receives them via the browser's `EventSource` API or `fetch()` with a stream reader. SSE is one-way: the client cannot send data back on the same connection — it must use a separate HTTP request (a POST, typically).
+- **WebSocket** — a persistent, bidirectional connection. Both sides can send messages at any time. Used when the client needs to interact mid-stream (approvals, cancellations, follow-up questions).
+
+sandbox-agent normalizes all agent outputs into one transport: **HTTP + SSE**. For Claude Code and Codex, this is essential — without it, the agent has no network-accessible transport at all. For OpenCode, which already has its own HTTP+SSE server (see Part 4), it is convenience — the platform talks to one API regardless of which agent runs inside the sandbox.
+
+// note: I want you to on the one hand list all possible output as you do in the research article in the first table, and explain them, then list the input that the project accept (JSONL on stdout, JSON-RPC over stdio) and say that it converts those to the output format. Replace also your schema to illustrate that
+
+**Human-in-the-loop becomes an API.** When the agent needs approval for a command, the daemon converts the blocking terminal prompt into an asynchronous HTTP flow: an SSE event broadcasts the request, the client replies via a REST endpoint, the daemon routes the answer back to the agent in its native format. This is the harness from Part 2, expressed as a REST API.
 
 **What it deliberately skips:** persistence. Sessions are in-memory. The project's documentation says it directly: "Sessions are already stored by the respective coding agents on disk." The daemon is ephemeral middleware — external systems consume the event stream and persist it wherever they want.
-
-**The lesson:** you can add transport and interactive control without building a database. sandbox-agent solves one hard problem (protocol normalization) and leaves everything else to the consumer.
 
 **How it maps to the Part 4 layers:**
 
@@ -723,51 +727,7 @@ Your App (anywhere)
 | Routing            | Partial               | In-memory session management — multiple sessions per daemon, but no persistent session registry.                        |
 | Persistence        | Deliberately skipped  | Sessions are in-memory. Agents persist their own state to disk. External systems persist the event stream.              |
 | Lifecycle          | Minimal               | Agent process managed by the daemon, but no background continuation beyond the sandbox's lifetime.                      |
-
-## AgCluster — the self-hosted dashboard
-
-**Agent Framework**: Claude Agent SDK
-**Cloud services**: None — runs on Docker Compose (self-hosted)
-**Layers**: transport + routing + partial lifecycle
-**Link**: [github.com/whiteboardmonk/agcluster-container](https://github.com/whiteboardmonk/agcluster-container)
-
-**Description**:
-- **This is a self-hosted agent platform with a web dashboard.** The middle ground between "run the SDK in a script" and "full cloud service."
-- **Use case**: run multiple isolated Claude agents from a web UI — code assistant, research agent, data analysis, code review — each in its own container.
-- A Docker Compose application: FastAPI backend, Next.js frontend, and dynamically created agent containers. Each agent runs the Claude Agent SDK in an isolated Docker container with its own workspace.
-
-**User journey:** the user opens a dashboard, picks a preset agent configuration (code assistant, research agent, data analysis), enters their Anthropic API key, and launches an agent. A Docker container spins up. The user chats with the agent in real time, watches tool executions (bash commands, file edits), browses the agent's workspace with a file explorer, and uploads files via drag-and-drop. Multiple agents can run concurrently, each in its own container.
-
-**Technical flow:**
-- The user picks a configuration and clicks launch. The FastAPI backend creates a Docker container running the Claude Agent SDK, with a dedicated workspace volume.
-- Chat messages flow through three SSE hops: browser → Next.js API route → FastAPI backend → agent container. Each hop re-wraps the event stream.
-- Inside the container, the Claude SDK executes tools locally — bash, file operations, web search — and streams results back as SSE events.
-- The backend tracks active sessions in memory. An idle timeout (default 30 minutes) cleans up unused containers.
-- The agent container keeps running after the browser closes — but there is no reconnection mechanism in the UI. The session is effectively lost when the user navigates away.
-
-```
-Browser (Next.js dashboard)
-  → SSE → FastAPI backend
-    → SSE → Agent Container (Docker)
-      → Claude Agent SDK query()
-        → Anthropic API
-  File Explorer: REST → FastAPI → Container filesystem
-```
-
-**Three SSE hops is the distinguishing architectural choice.** Each message passes through three separate SSE streams: container → backend → frontend → browser. This keeps each layer independently deployable — the backend can manage multiple containers without exposing Docker internals to the browser.
-
-**No database, no durable state.** Sessions live in an in-memory dictionary. Restart the API server and all session metadata is lost. Agent workspaces survive (Docker volumes persist on the host), but conversation history does not. This is the deliberate trade-off: a self-hosted platform without the operational burden of a database.
-
-**How it maps to the Part 4 layers:**
-
-| Layer              | Status                  | Implementation                                                                                                                  |
-| ------------------ | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Authentication     | Minimal                 | API key hash per session prevents cross-session access, but no user accounts.                                                   |
-| Network resilience | Skipped                 | If the SSE connection drops, the stream is lost. No reconnection, no sequence numbers.                                          |
-| Transport          | Implemented             | SSE streaming through three hops (container → backend → frontend). REST for file management.                                    |
-| Routing            | Implemented (in-memory) | Session ID maps to a Docker container. Multiple concurrent sessions supported. Registry lost on server restart.                  |
-| Persistence        | Workspace only          | Docker volumes for the agent's /workspace directory survive container restarts. No conversation history, no session registry on disk. |
-| Lifecycle          | Partial                 | Containers keep running after browser closes (idle timeout: 30 min). But no UI reconnection — effectively a one-shot session.   |
+// note: you say that sessions are in-memory, but are they not on disk? Is it the same? That means that conversations are persisted as long as the sandbox
 
 ## Ramp Inspect — the full production stack
 
