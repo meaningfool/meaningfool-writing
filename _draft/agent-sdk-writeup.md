@@ -601,13 +601,12 @@ However, given the security concerns around giving a computer to your agent, in 
 
 Part 5 walks through real projects to illustrate how agents are assembled from different technical bricks, reviewing a variety of architectural choices.
 
-## Claude in the Box — the minimum
+## Claude in the Box: the job agent
 
 **Agent Framework**: Claude Agent SDK
 **Cloud services**: Cloudflare Worker + Cloudflare Sandbox
 **Layers**: transport + artifacts persistence 
-**Link**: 
-// note: add a link to the project Github
+**Link**: [github.com/craigsdennis/claude-in-the-box](https://github.com/craigsdennis/claude-in-the-box)
 
 **Description**:
 - **This is a job agent, not a chatbot.** No conversation, no back-and-forth during execution, no session to resume.
@@ -633,15 +632,24 @@ Browser → HTTP POST
 ```
 
 
-**What Cloudflare provides vs what the developer builds:**
-- Cloudflare provides container orchestration, VM isolation, file/exec APIs, and KV storage.
-- The developer writes glue: an HTTP endpoint, a streaming bridge (sandbox stdout → HTTP response), and artifact collection (read files → store in KV).
+**Why two layers — Worker + Sandbox?**
 
-// note: let's explain why we need all the different bricks. And not assume that the reader knows about those bricks. We are not giving a course but highlighting what they are good for in the context of the use case and why they can't assume other roles. For example, we want to explain why Worker cannot run Claude Agent SDK and that we have to have a Sandbox on top of it
+A Cloudflare Worker is a lightweight JavaScript runtime (a V8 isolate). It can handle HTTP requests, run business logic, and talk to Cloudflare services — but it has no filesystem, no bash, and no ability to run long processes. It cannot run the Claude Agent SDK, which needs a full machine with Node.js, a shell, and a filesystem to operate.
 
-**What it skips:** no authentication (anyone can call the endpoint), no routing (no session IDs, no conversations to switch between), no persistence of conversation state (only final artifacts are saved), and no lifecycle management (the agent dies with the request — if the client disconnects, the work is lost).
+That's what the Sandbox provides: an isolated Ubuntu container with everything the agent needs. The Worker acts as the front door — it receives the HTTP request, spins up the Sandbox, bridges the stream to the client, and cleans up afterward. The Sandbox is where the actual agent work happens.
 
-// note: make a table with what it skips what it implements for each of the dimensions identified in part 4
+The developer writes the glue between the two: ~100 lines that wire up the HTTP endpoint, stream the agent's output to the client, and collect the final artifacts.
+
+**How it maps to the Part 4 layers:**
+
+| Layer              | Status                | Implementation                                                                                  |
+| ------------------ | --------------------- | ----------------------------------------------------------------------------------------------- |
+| Authentication     | Skipped               | Anyone can call the endpoint.                                                                   |
+| Network resilience | Skipped               | If the connection drops, the work is lost.                                                      |
+| Transport          | Implemented (minimal) | Chunked HTTP streaming — the user watches progress in real time, but cannot send anything back. |
+| Routing            | Skipped               | No session IDs, no conversations to switch between. Each request is independent.                |
+| Persistence        | Partial               | Final artifacts only (stored in KV). No conversation history, no ability to resume.             |
+| Lifecycle          | Skipped               | The agent dies with the request. Close the tab and the work stops.                              |
 ## sandbox-agent — the adapter
 
 **How do you talk to a coding agent over HTTP instead of a terminal?**
