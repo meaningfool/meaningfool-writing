@@ -489,23 +489,29 @@ Same capability (a spreadsheet), two ways to package it:
 
 The boundary between your machine and the remote one is the **service boundary**.
 
-Note: after the google sheet example, go back to a more generic definition, in order not to be incorrect.
+More precisely, the distinction is not about physical machines — it is about whether a capability runs inside your application or as a separate, independent process. Your application calls a library directly; it connects to a service over a protocol.
 
-Note: re-introduce the database example which was good (look up previous commits)
+**A more technical example: databases.**
+
+SQLite is embedded. Your application links the library, calls functions directly. No service boundary. When your app exits, SQLite exits.
+
+PostgreSQL is hosted. It runs as a separate server process. Your application connects over a socket, sends SQL as messages, receives results. Service boundary. PostgreSQL keeps running after your app disconnects.
+
+Same domain (relational database), two packaging modes.
 
 <!-- TODO: illustration — two diagrams side by side. Left: "Embedded" showing your machine with the app inside it. Right: "Hosted" showing your machine connecting over the network to a server with the app inside it. The network connection is the service boundary. -->
 
-### What is the difference between an Agent SDK and "Agent"
+### What is the difference between an Agent SDK and a "regular agent"
 
-An Agent SDK provides the same kind of capabilities you would expect from a general agent, and furthermore from a coding agent: send a prompt and get an answer, jump from one conversation to another, manage tool permissions,...
-- **`query(prompt)`** — the main entry point. Send a prompt, get back a stream of messages. This is the equivalent of typing a message in Claude Code.
-- **`sessionId`** — resume a previous conversation. Pass a session ID and the agent picks up where it left off, with full context.
-- **`allowedTools`** — control what the agent can do. Restrict it to `["Read", "Edit"]` for read-and-edit-only, or give it `["Bash", "Read", "Write", "Edit"]` for full access.
-- **Hooks** — intercept the agent's behavior. Get notified before or after a tool call, log actions, add approval gates.
+An Agent SDK provides the same kind of capabilities you would expect from a coding agent — but as functions you call from your own code:
 
-//note: rewrite the block above with a list of capabilities with the technical terms (name of the function) coming second
+- **Send a prompt, get a response** — the equivalent of typing a message in Claude Code. In the SDK: `query(prompt)`.
+- **Resume a previous conversation** — pick up where you left off, with full context. In the SDK: pass a `sessionId`.
+- **Control which tools the agent can use** — restrict it to read-only, or give it full access. In the SDK: `allowedTools`.
+- **Intercept the agent's behavior** — get notified before or after a tool call, log actions, add approval gates. In the SDK: hooks.
 
 ```python
+# Send a prompt to the Claude Agent SDK with a list of allowed tools
 from claude_agent_sdk import query
 
 async for message in query(
@@ -514,21 +520,15 @@ async for message in query(
 ):
     print(message)
 ```
-// Note: add a comment at the top of coding block to explain what this does, i.e. send a prompt to Claude Agent SDK with a list of allowed tools.
 
-**The Claude Agent SDK is Claude Code packaged as a library.**
+The difference between an "Agent SDK" and a "regular agent" such as Claude Code is that it provides a "programmable interface" (API) instead of a user interface. 
 
-The same capabilities you use interactively in Claude Code — sending a prompt, resuming a conversation, controlling which tools the agent can use — become functions you call from your own code:
-
-This runs in your process. When your script ends, the agent ends. No service boundary.
-
-### When you'd use an SDK
-
-**Packaging the agent as a library opens up uses that the CLI cannot support:**
-- **Automation** — trigger the agent from code, on a schedule, or in response to events — no human in the loop.
-- **Integration** — embed agent capabilities inside an existing application.
+With an Agent SDK, you may:
+- **Automate** tasks that an agent is better suited to manage. Trigger the agent - no human in the loop.
+- **Extend** an existing app with an agentic feature involving some back and forth between the user and the agent— embed agent capabilities inside an existing application.
 - **Custom tooling** — extend the agent with domain-specific tools via MCP or SDK hooks.
 - **Structured output** — get machine-readable results instead of terminal text.
+// note: I'm not sure custom tooling and structured output are distinct from Automate and Extend. Can you think of other use cases that don't overlap with these 2? 
 
 **Example: automated code review in CI.**
 
@@ -548,7 +548,7 @@ The bot itself runs as a server (it receives Slack webhooks). But the agent insi
 
 ### When would you need and Agent Server?
 
-**The requirements change when the agent must outlive the client:**
+**An Agent Server is required when the agent must outlive the client:**
 - Access from anywhere, not just a CI job or a bot on your server.
 - Close your browser, come back later, and find the agent still running — or finished.
 - Multiple people connecting to the same agent session.
@@ -556,18 +556,14 @@ The bot itself runs as a server (it receives Slack webhooks). But the agent insi
 
 This is when the agent's lifecycle must be decoupled from the client's. The agent runs in a separate process. You connect to it over the network. You disconnect, and it keeps going.
 
+### What you need to build to go from an Agent SDK to Agent Server?
+
 **You cannot just put the SDK on a server and call it done.** The SDK gives you the agent loop. It does not handle what comes with running a process that other people connect to over a network:
 - **Authentication** — who is allowed to talk to this agent, and how do you verify that?
 - **Network resilience** — clients disconnect, requests timeout, connections drop mid-stream. The library assumes a stable in-process caller.
 - **Protocol design** — what format do messages take? HTTP request/response? Server-sent events for streaming? WebSocket for bidirectional communication?
 
-**These are not agent problems — they are service problems.** And they are what the next section addresses.
-
-### What you need to build to go from an Agent SDK to Agent Server?
-
-**Think of it like layers of an onion.** At the core is the agent loop — the LLM, tools, and the loop that connects them. The Claude Agent SDK (TypeScript) and py-sdk (Python) give you this core.
-
-Around the core are the service layers — what you build to turn the library into something usable behind a service boundary:
+//note : is protocol design redundant with Transport ? If so remove it. Or reframe it if necessary
 
 **Transport** — how client and server communicate:
 - HTTP request/response for simple call-and-wait.
