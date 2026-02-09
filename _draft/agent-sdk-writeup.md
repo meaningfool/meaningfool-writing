@@ -564,40 +564,39 @@ If you want to build a ChatGPT clone, an Agent SDK is a start. But it's not enou
 
 Authentication and network resilience need to be thought through for any client-server application. Agents require additional layers:
 
-//note: let's be more specific for each capability, how the different implementation options map to specific use cases
+**Transport** — how client and server communicate. The choice depends on how you want the user to experience the agent:
+- **HTTP request/response** for job-style agents. Submit a task, wait for the result. The CI code review agent from earlier would work this way — trigger, wait, done.
+- **HTTP + SSE (Server-Sent Events)** for streaming the agent's progress in real time. The user sees the agent thinking and acting as it works — like watching a ChatGPT response appear token by token.
+- **WebSocket** for bidirectional communication. The user can send input while the agent is working — approve a command, redirect mid-task, or collaborate in real time. This is what you need for multi-user sessions where several people connect to the same agent.
 
-**Transport** (how client and server communicate) - the type of transport you want to enable depends on the exact use case:
-- HTTP request/response for simple call-and-wait.
-- HTTP + SSE (Server-Sent Events) for streaming the agent's output in real time.
-- WebSocket for bidirectional communication — the client can send input while the agent is working.
+// note: can you have bidirectional communications with HTTP only? Be more specific about what is SSE: does it mean you receive some kind of partials but cannot send anything until it's done? Does it have anything to do with the ability to send interruption commands? For websocket, should be clearer what it solves based on SSE additional info. But why is it needed from multi-user sessions?
 
-**Routing** — finding the right conversation:
-- Session IDs that map each request to the correct agent process.
-- A registry that knows which sessions exist and where they are running.
+**Routing** — finding the right conversation. When multiple users each have their own agent sessions running on your server, every request needs to reach the right one:
+- **Session IDs** that map each request to the correct agent process.
+- **A registry** that knows which sessions exist and where they are running. For a single-server deployment, this can be an in-memory map. For a distributed system, you need something like Cloudflare Durable Objects or a database.
 
-**Persistence** — keeping state between requests:
-- Messages, artifacts, and traces need to survive across connections.
+// note: how is it related to multiple users? Even a single user that needs to access former sessions needs that, and if they resume conversation, each message needs to be sent to the right conversation. Try to be closer to the user experience to explain the differences, for all the items
+
+**Persistence** — keeping state across connections. When a user disconnects and reconnects, they expect to find their conversation and the agent's work intact:
 - If your runtime persists (VPS, long-running container), the runtime itself can be your persistence — the Claude Agent SDK saves sessions to disk automatically.
-- If your runtime is ephemeral, you need to explicitly save and reload state.
+- If your runtime is ephemeral (serverless, containers that spin down), you need to explicitly save and reload state to an external store — a database, object storage, or filesystem snapshots.
+// note: be more specific about what persistence mean in terms of user experience. I'm thinking we should kick the VPS / persisting runtimes vs ephemeral runtimes conversation to the next part
 
-**Lifecycle** — what happens when the client disconnects:
-- Stop immediately — simplest to implement, but the agent's work is lost.
-- Keep running in the background — the agent finishes, results are waiting when you reconnect.
-- Timeout after a grace period — a middle ground.
-- Background continuation is the feature that drives most of the architectural complexity.
+**Lifecycle** — what happens when the client disconnects. This is the decision with the most architectural impact:
+- **Stop immediately** — simplest to implement, but the agent's work is lost. Fine for short tasks like the agentic search example.
+- **Keep running in the background** — the agent finishes, results are waiting when you reconnect. This is what makes Ramp's Inspect and similar tools compelling: close the tab, come back later, find a finished PR. It is also what drives most of the architectural complexity.
+- **Timeout after a grace period** — a middle ground for tasks where you want to avoid runaway costs.
+//note: it's unclear how lifecycle is some additional layer you have to build. What exactly do you have to build? Be specific here and in all the items above
 
 <!-- TODO: illustration — concentric circles (onion diagram). Inner circle: "Agent loop (Claude Agent SDK, py-sdk)". Next ring: "Session management". Next ring: "Transport (HTTP/WS)". Next ring: "Routing". Outer ring: "Persistence, lifecycle". Label the whole thing: "What you build with SDK-first". Then show OpenCode as a pre-assembled version with all layers included. -->
 
 ## What to keep in mind
 
 - **Library vs service is the fundamental question.** The same capability — the agent loop — can run embedded (in your process) or hosted (behind a service boundary). The choice depends on whether you need independent lifecycle, multiple clients, or remote access.
-- **The onion model clarifies what you build.** The SDK gives you the core. Transport, routing, persistence, and lifecycle are the layers you add — or get pre-built from something like OpenCode.
-
-//note : got rid of the onion layers reference, update what to keep in mind according to the current content. Add / remove / reframe as needed
+- **Start with the SDK.** Most use cases — CI automation, embedded search, internal tools — work fine with the agent running inside your process. You only need a server when the agent must outlive the client.
+- **The server layers are cumulative.** Transport, routing, persistence, lifecycle — each adds complexity. You don't need all of them. A job agent needs transport and nothing else. Background continuation needs all four.
 
 # Part 5 — Architecture by example
-
-// note: would "Agent system architecture" fit as a title?
 
 **What do the concepts from Parts 3 and 4 look like when assembled into real systems?**
 
