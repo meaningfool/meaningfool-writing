@@ -579,12 +579,11 @@ Authentication and network resilience need to be thought through for any client-
 - You build this by "persisting" the conversation state (messages, context, artifacts). Unless the runtime is run without interruption that means saving the state and reloading it when the user reconnects. 
 - Part 5 shows how different projects solve this differently.
 
-**Lifecycle** — what happens when the user closes the tab while the agent is working. With the SDK alone, the agent dies with your process. To change that, you build lifecycle management: the agent runs in its own process (or container), decoupled from the client connection. You decide the policy:
-- **Stop immediately** — simplest. The agent stops when the user disconnects. Fine for short tasks like the agentic search example.
-- **Keep running in the background** — the agent finishes on its own, and results are waiting when the user reconnects. This is what makes tools like Ramp's Inspect compelling: close the tab, come back later, find a finished PR. Building this means running agent processes that persist independently, monitoring their status, and notifying the user on completion.
-- **Timeout after a grace period** — a middle ground. The agent keeps running for a set period, then stops to avoid runaway costs.
-
-//note: it says you need to decide, but it's still unclear whether you need to build something to make any of these options happen. Let's say you have implemented all of the things above lifecycle. If you don't get lifecycle, what do you have? And what do you need to do concretely to add lifecycle? 
+**Lifecycle** — what happens when the user closes the tab while the agent is working.
+- Without lifecycle management, you already have a working agent server — it handles requests, streams responses, routes to the right session, and persists state. But the agent runs inside the request handler. When the user disconnects, the connection closes and the agent stops. For longer tasks, you need the agent to survive disconnection. 
+- To do so, first you need to separate the agent process from the request handler. The agent runs in its own container or background process, not inside the HTTP handler. 
+- Then you need to add a supervisor that monitors running agents — tracks which ones are active, detects when they finish or fail, and cleans up resources.
+- Finally you may add a notification mechanism — when the agent finishes, the user needs to know. A Slack message, an email, a push notification, or a status the user can poll.
 
 <!-- TODO: illustration — concentric circles (onion diagram). Inner circle: "Agent loop (Claude Agent SDK, py-sdk)". Next ring: "Session management". Next ring: "Transport (HTTP/WS)". Next ring: "Routing". Outer ring: "Persistence, lifecycle". Label the whole thing: "What you build with SDK-first". Then show OpenCode as a pre-assembled version with all layers included. -->
 
@@ -596,37 +595,50 @@ Authentication and network resilience need to be thought through for any client-
 
 # Part 5 — Architecture by example
 
-Agent Server vs Agent SDK is not a binary decision.
-Given the security concern around giving a computer to your agent, in many cases you want the agent being sandboxed.
-And once you put it behind the service boundary, there are many flavours you can implement, with different ways of doing it. 
+The "SDK way" and the "Server way" are not the only 2 options you have. There is a number of ways you may take in-between the 2 ends of the spectrum. It all depends on the use case you wish to implement.
 
-Part 5 goes through a few examples of use cases and the associated architecture, to illustrate how agents may be assembled from multiple technical bricks.
+However, given the security concerns around giving a computer to your agent, in many cases you want the agent to be sandboxed. Unless you give an agent its own VPS, the sandbox is most likely ephemeral which adds to the complexity as it may require to implement some persistence.
 
-//note: rewrite the intro based on the items provided
+Part 5 walks through real projects to illustrate how agents are assembled from different technical bricks, reviewing a variety of architectural choices.
 
 ## Claude in the Box — the minimum
 
-**A ~100-line project that wraps the Claude Agent SDK inside a Cloudflare Worker.**
+**Agent Framework**: Claude Agent SDK
+**Cloud services**: Cloudflare Worker + Cloudflare Sandbox
+**Layers**: transport + artifacts persistence 
+**Link**: 
 
-You submit a URL via HTTP. A sandbox spins up. The agent runs to completion inside it, writes output files, and the sandbox is destroyed.
+**Description**:
+- **This is a job agent, not a chatbot.** No conversation, no back-and-forth during execution, no session to resume.
+- **Use case**: a job that is best performed by an agent, i.e. extract structured data from a document.
+- **User journey**: 1- Client sends a prompt to the Agent URL, 2- Client receives an ID, 3- Client retrieves the produced artifact using the ID
+- A ~100-line project that wraps the Claude Agent SDK.
+
+// note: please clarify the user journey and the technical flow : does the client wait for agent completion to get the answer to its http request? Clarify who writes the artifact and where and how it is accessed
+
+Technical flow:
+- The client submits an HTTP POST request to a Worker. 
+- The Worker spins up a Sandbox that contains the Cloud Agent SDK. 
+- The agent runs to completion inside it, writes output files, and the sandbox is destroyed.
 
 ```
 Browser → HTTP POST
   → Cloudflare Worker (~100 lines)
-    → Sandbox → Ubuntu Container
+    → Cloudflare Sandbox
       → Claude Agent SDK query()
     ← streams stdout back
     → reads artifacts → stores in KV
     → destroys sandbox
 ```
 
-**This is a job agent, not a chatbot.** Each request is independent: submit input, wait, get output. No conversation, no back-and-forth during execution, no session to resume.
 
 **What Cloudflare provides vs what the developer builds:**
 - Cloudflare provides container orchestration, VM isolation, file/exec APIs, and KV storage.
 - The developer writes glue: an HTTP endpoint, a streaming bridge (sandbox stdout → HTTP response), and artifact collection (read files → store in KV).
 
 **What it skips:** authentication, conversation management, job queuing, retry logic, cost controls. The entire service boundary is ~100 lines of glue code.
+
+// note: rewrite what is skipped based on the revised part 4
 
 **The lesson:** not every agent needs all the layers. A job that runs to completion and returns a result is a perfectly valid use case — and it needs almost no service infrastructure.
 
