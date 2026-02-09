@@ -472,7 +472,7 @@ This works well for many use cases. But if you want to build something like Chat
 
 Part 4 explains the difference between the two, and what you need to build to get from one to the other.
 
-## What's an SDK anyway
+## What's an Agent "SDK" anyway?
 ### Libraries and services
 
 **Think of the difference between Excel and Google Sheets.**
@@ -524,29 +524,26 @@ async for message in query(
 The difference between an "Agent SDK" and a "regular agent" such as Claude Code is that it provides a "programmable interface" (API) instead of a user interface. 
 
 With an Agent SDK, you may:
-- **Automate** tasks that an agent is better suited to manage. Trigger the agent - no human in the loop.
-- **Extend** an existing app with an agentic feature involving some back and forth between the user and the agent— embed agent capabilities inside an existing application.
-- **Custom tooling** — extend the agent with domain-specific tools via MCP or SDK hooks.
-- **Structured output** — get machine-readable results instead of terminal text.
-// note: I'm not sure custom tooling and structured output are distinct from Automate and Extend. Can you think of other use cases that don't overlap with these 2? 
+- **Automate** tasks that an agent is better suited to manage. Trigger the agent, let it run to completion — no human in the loop. Hook into the agent's behavior to log actions, enforce constraints, or get structured results instead of terminal text.
+- **Extend** an existing app with an agentic feature — embed agent capabilities inside an application where a user interacts with the agent through your own interface, not the agent's CLI.
 
 **Example: automated code review in CI.**
+- You run the Claude Agent SDK in a GitHub Actions job. 
+- When a PR is opened, the agent reviews the code, runs tests, and posts comments. 
+- There is no service boundary: the agent is instantiated within the GitHub Actions runner process, and is constrained by that runner's limits — 6-hour max job duration, fixed RAM and disk, no persistent state between runs.
 
-You run the Claude Agent SDK in a GitHub Actions job. When a PR is opened, the agent reviews the code, runs tests, and posts comments. The job container is ephemeral — created for the run, destroyed after. The agent runs to completion and exits.
-
-No service boundary. The agent is triggered, does its work, and is gone.
-
-**Example: a Slack bot that answers questions.**
-
-A bot listens for messages in a Slack channel. When someone asks a question, the bot calls `query()` with the message, the agent runs, and the bot posts the response. Each message is an independent agent invocation — the agent starts, responds, and exits.
-
-The bot itself runs as a server (it receives Slack webhooks). But the agent inside it is still embedded — a function call within the request handler, not a separate process. No agent service boundary.
+**Example: agentic search in a support app.**
+- A customer support app has a search bar. 
+- When a support agent types a question, the app calls `query()` and the agent searches the knowledge base, ticket history,... The agent synthesizes an answer from multiple sources and returns it to the app, which displays it in the UI.
+- The agent is a function call within the app process. When the search completes (or the user navigates away), the session is gone. No agent service boundary.
 
 **In both cases, the agent runs within the host process.** It starts, does its work, and stops. No independent lifecycle. No reconnection. No background continuation.
 
-## What does an Agent Server offer that an Agent SDK does not?
+## How is an Agent Server different from an Agent SDK?
 
-### When would you need and Agent Server?
+### The Agent Server use case
+
+If you want to build a ChatGPT clone, an Agent SDK is a start. But it's not enough.
 
 **An Agent Server is required when the agent must outlive the client:**
 - Access from anywhere, not just a CI job or a bot on your server.
@@ -554,18 +551,22 @@ The bot itself runs as a server (it receives Slack webhooks). But the agent insi
 - Multiple people connecting to the same agent session.
 - Real-time progress as the agent works.
 
-This is when the agent's lifecycle must be decoupled from the client's. The agent runs in a separate process. You connect to it over the network. You disconnect, and it keeps going.
-
-### What you need to build to go from an Agent SDK to Agent Server?
+**This is when the agent's lifecycle must be decoupled from the client's**: 
+- The agent runs in a separate process. 
+- You connect to it over the network. 
+- You disconnect, and it keeps going.
 
 **You cannot just put the SDK on a server and call it done.** The SDK gives you the agent loop. It does not handle what comes with running a process that other people connect to over a network:
 - **Authentication** — who is allowed to talk to this agent, and how do you verify that?
 - **Network resilience** — clients disconnect, requests timeout, connections drop mid-stream. The library assumes a stable in-process caller.
-- **Protocol design** — what format do messages take? HTTP request/response? Server-sent events for streaming? WebSocket for bidirectional communication?
 
-//note : is protocol design redundant with Transport ? If so remove it. Or reframe it if necessary
+### Agent-specific server capabilities
 
-**Transport** — how client and server communicate:
+Authentication and network resilience need to be thought through for any client-server application. Agents require additional layers:
+
+//note: let's be more specific for each capability, how the different implementation options map to specific use cases
+
+**Transport** (how client and server communicate) - the type of transport you want to enable depends on the exact use case:
 - HTTP request/response for simple call-and-wait.
 - HTTP + SSE (Server-Sent Events) for streaming the agent's output in real time.
 - WebSocket for bidirectional communication — the client can send input while the agent is working.
@@ -587,27 +588,16 @@ This is when the agent's lifecycle must be decoupled from the client's. The agen
 
 <!-- TODO: illustration — concentric circles (onion diagram). Inner circle: "Agent loop (Claude Agent SDK, py-sdk)". Next ring: "Session management". Next ring: "Transport (HTTP/WS)". Next ring: "Routing". Outer ring: "Persistence, lifecycle". Label the whole thing: "What you build with SDK-first". Then show OpenCode as a pre-assembled version with all layers included. -->
 
-### SDK-first vs server-first
-
-**SDK-first (Claude Agent SDK): you build the layers.**
-- The SDK gives you: the agent loop, built-in tools, session management with disk persistence, conversation history, and hooks.
-- You build: HTTP/WebSocket server, request routing, database integration, authentication, and lifecycle policies.
-
-**Server-first (OpenCode): the layers come pre-built.**
-- OpenCode ships as a server with an HTTP API. Session routing, streaming, cancellation — all included.
-- You build clients (CLI, IDE plugins, web apps), not the service layer.
-
-**The trade-off:**
-- **SDK-first** gives you control but requires more work.
-- **Server-first** gives you structure but less flexibility.
-
 ## What to keep in mind
 
 - **Library vs service is the fundamental question.** The same capability — the agent loop — can run embedded (in your process) or hosted (behind a service boundary). The choice depends on whether you need independent lifecycle, multiple clients, or remote access.
 - **The onion model clarifies what you build.** The SDK gives you the core. Transport, routing, persistence, and lifecycle are the layers you add — or get pre-built from something like OpenCode.
 
+//note : got rid of the onion layers reference, update what to keep in mind according to the current content. Add / remove / reframe as needed
 
 # Part 5 — Architecture by example
+
+// note: would "Agent system architecture" fit as a title?
 
 **What do the concepts from Parts 3 and 4 look like when assembled into real systems?**
 
