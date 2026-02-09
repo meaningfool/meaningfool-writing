@@ -650,9 +650,7 @@ Browser → HTTP POST
 
 **Highlight: Why Cloudflare requires two layers: Worker + Sandbox?**
 
-The Worker is internet-facing. It receives HTTP requests, routes them, and connects to Cloudflare services like KV and Durable Objects. But it runs in a V8 isolate — a lightweight JavaScript sandbox with no filesystem, no shell, and a 30-second CPU time limit. It cannot run the Claude Agent SDK.
-
-// note: we can highlight its advantage that is that it goes to sleep between requests, and it bills only for the time running.
+The Worker is internet-facing. It receives HTTP requests, routes them, and connects to Cloudflare services like KV and Durable Objects. It sleeps between requests and bills only for the time it runs — cheap and instant. But it runs in a V8 isolate — a lightweight JavaScript sandbox with no filesystem, no shell, and a 30-second CPU time limit. It cannot run the Claude Agent SDK.
 
 The Sandbox is the opposite. It is a full Ubuntu container with bash, Node.js, a filesystem, and no time limit — everything the agent needs. But it has no public URL. It cannot receive requests from the internet or talk to Cloudflare services directly.
 
@@ -676,11 +674,8 @@ Neither can do the whole job alone. The Worker provides the service boundary (HT
 **Link**: [github.com/rivet-dev/sandbox-agent](https://github.com/rivet-dev/sandbox-agent)
 
 **Description**:
-- **This is a transport adapter, not a platform.** It solves one problem — giving every coding agent a unified HTTP+SSE transport — and leaves everything else to the consumer.
-- **Use case**: universal HTTP API for coding agents — lets any app talk to any coding agent over HTTP instead of a terminal.
-- A Rust daemon that runs inside a sandbox and exposes a universal HTTP+SSE API. It manages agent processes and translates their different native protocols (JSONL on stdout, JSON-RPC over stdio, HTTP server) into a single event stream.
-
-**User journey:** a developer building a coding assistant platform deploys sandbox-agent inside their sandboxes — E2B, Docker, Fly.io, or any other provider. Their web app connects to it via HTTP+SSE. The app streams agent output and can send approvals or cancellations via REST endpoints. The developer doesn't need to understand each agent's native protocol, and doesn't need to change anything when switching sandbox providers.
+- **This is a transport adapter.** It solves one problem — giving every coding agent a unified HTTP+SSE transport — and leaves everything else to the consumer.
+- **Use case**: when a developer wants to deploy a variety of coding agents in sandboxes, this provides a built-in transport solution. The developer doesn't need to understand each agent's native protocol, and doesn't need to change anything when switching sandbox providers.
 
 **Technical flow:**
 - The daemon starts inside a sandbox and listens on an HTTP port.
@@ -701,19 +696,44 @@ Your App (anywhere)
 +----------------------------------------+
 ```
 
-**Highlight: What "adding transport" means here**
+**Highlight: the Transport layer
 
-The agents that sandbox-agent supports communicate in fundamentally different ways. Understanding this requires a brief aside on transport modes:
+Transport is how a client and a server exchange data over a network. There is a spectrum of transport modes, from simplest to most capable:
 
-- **Subprocess output (stdout)** — Claude Code and Codex run as child processes. They write JSONL to stdout. There is no HTTP server, no network endpoint, no way for a remote client to connect. To make them network-accessible, something must read their stdout and translate it into a network protocol.
-- **Server-Sent Events (SSE)** — a one-way server-to-client protocol on top of HTTP. The server pushes structured events (with named types, IDs, and built-in reconnection). The client receives them via the browser's `EventSource` API or `fetch()` with a stream reader. SSE is one-way: the client cannot send data back on the same connection — it must use a separate HTTP request (a POST, typically).
-- **WebSocket** — a persistent, bidirectional connection. Both sides can send messages at any time. Used when the client needs to interact mid-stream (approvals, cancellations, follow-up questions).
+| Mode | How it works | Directionality | Reconnection |
+|------|-------------|----------------|--------------|
+| **HTTP request/response** | Client sends a request, server returns a complete response. | One exchange, then done. | N/A (stateless). |
+| **Chunked HTTP streaming** | Server sends the response in pieces as they become available. The client reads progressively. | Server → client only (one response). | None. Connection drops = data lost. |
+| **Server-Sent Events (SSE)** | Like chunked HTTP, but with structured framing: named event types, event IDs, and built-in automatic reconnection. | Server → client only. Client sends data via separate HTTP requests. | Built-in. Browser reconnects automatically and resumes from last event ID. |
+| **WebSocket** | Persistent, bidirectional connection. Both sides send messages at any time. | Full duplex. | Application must implement. |
+// note: reframe the table in the context of an agent / agent UX
 
-sandbox-agent normalizes all agent outputs into one transport: **HTTP + SSE**. For Claude Code and Codex, this is essential — without it, the agent has no network-accessible transport at all. For OpenCode, which already has its own HTTP+SSE server (see Part 4), it is convenience — the platform talks to one API regardless of which agent runs inside the sandbox.
+Claude in the Box uses chunked HTTP streaming. sandbox-agent outputs SSE (third row). Ramp Inspect uses WebSocket (fourth row). Each step up adds capability and complexity.
 
-// note: I want you to on the one hand list all possible output as you do in the research article in the first table, and explain them, then list the input that the project accept (JSONL on stdout, JSON-RPC over stdio) and say that it converts those to the output format. Replace also your schema to illustrate that
+Now, the agents that sandbox-agent supports speak different native protocols — none of which are network transports:
 
-**Human-in-the-loop becomes an API.** When the agent needs approval for a command, the daemon converts the blocking terminal prompt into an asynchronous HTTP flow: an SSE event broadcasts the request, the client replies via a REST endpoint, the daemon routes the answer back to the agent in its native format. This is the harness from Part 2, expressed as a REST API.
+- **JSONL on stdout** — Claude Code and Codex run as child processes. They write one JSON object per line to stdout. 
+- **JSON-RPC over stdio** — Some agents use a structured request/response protocol over stdin/stdout. Still a local subprocess — not network-accessible.
+  // note: be specific, don't say "some agents", give names
+- **HTTP server** — OpenCode already runs its own HTTP+SSE server (see Part 4). It is network-accessible without translation.
+
+sandbox-agent converts all of these into one output: **HTTP + SSE with a uniform event schema**.
+For Claude Code and Codex, this translation is essential — without it, the agent has no network-accessible transport at all. For OpenCode, which already has HTTP+SSE, it is convenience — the platform talks to one API regardless of which agent runs inside the sandbox.
+
+```
+Your App (anywhere)
+    |  HTTP + SSE (uniform event schema)
+    v
++--[sandbox boundary]-------------------------------+
+|  sandbox-agent (Rust daemon)                       |
+|    |              |              |                  |
+|    | JSONL/stdout | JSON-RPC     | HTTP proxy       |
+|    v              v              v                  |
+|  Claude Code    Codex         OpenCode              |
+|  [filesystem, bash, git, tools...]                  |
++----------------------------------------------------+
+```
+
 
 **What it deliberately skips:** persistence. Sessions are in-memory. The project's documentation says it directly: "Sessions are already stored by the respective coding agents on disk." The daemon is ephemeral middleware — external systems consume the event stream and persist it wherever they want.
 
@@ -725,10 +745,9 @@ sandbox-agent normalizes all agent outputs into one transport: **HTTP + SSE**. F
 | Network resilience | Partial               | SSE sequence numbers allow clients to reconnect and resume from last-seen event.                                        |
 | Transport          | Implemented           | HTTP + SSE — structured event stream with sequence numbers for reconnection. REST endpoints for approvals/cancellation. |
 | Routing            | Partial               | In-memory session management — multiple sessions per daemon, but no persistent session registry.                        |
-| Persistence        | Deliberately skipped  | Sessions are in-memory. Agents persist their own state to disk. External systems persist the event stream.              |
+| Persistence        | Two levels             | The daemon's session registry is in-memory — lost if the daemon restarts. But the agents themselves (Claude Code, OpenCode) persist conversations to the sandbox filesystem. So conversation state survives daemon restarts, but not sandbox destruction. |
 | Lifecycle          | Minimal               | Agent process managed by the daemon, but no background continuation beyond the sandbox's lifetime.                      |
-// note: you say that sessions are in-memory, but are they not on disk? Is it the same? That means that conversations are persisted as long as the sandbox
-
+// note: is the deamon capable of re-init from the state saved on the filesystem? If so we don't need to mention the daemon in the Persistence part, since it does not matter
 ## Ramp Inspect — the full production stack
 
 **Agent Framework**: OpenCode
