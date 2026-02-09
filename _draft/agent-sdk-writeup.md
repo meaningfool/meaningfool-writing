@@ -737,16 +737,13 @@ Now, the agents that sandbox-agent supports speak different native protocols —
 **User journey:** an engineer describes a task in Slack, the web UI, or a Chrome extension. The agent works in the background — the engineer can close the tab, switch clients, come back later from a different device. When done, the agent posts a PR or a Slack notification. Multiple engineers can watch the same session simultaneously.
 
 **Technical flow:**
-- The client connects via WebSocket to a Cloudflare Worker.
-- The Worker routes the connection to a Durable Object identified by session ID.
-- The DO manages the WebSocket hub, stores conversation state in embedded SQLite, and forwards the task to a Modal Sandbox VM.
+- Each task gets a **session** — one session = one Durable Object + one Modal VM + one conversation. The session ID is the permanent address for the task.
+- The client connects via WebSocket to a Cloudflare Worker, which routes the connection to the session's Durable Object.
+- The DO is the hub: it holds WebSocket connections from all clients watching this session, stores conversation history in embedded SQLite, and forwards messages to the Modal VM. When the agent produces output, the DO broadcasts it to every connected client.
 - The VM runs OpenCode with a full dev environment: git, npm, pytest, Postgres, Chromium, Sentry integration.
 - The agent works independently of any client connection. If all clients disconnect, the VM keeps running.
 - On completion, the agent posts results via Slack notification or GitHub PR.
-- VM state — code, dependencies, build artifacts, environment — is preserved through Modal's snapshot API. You can freeze a session and restore it days later, even beyond the 24-hour VM TTL.
-// note: clarify in the chat the difference between session and conversation. What would be stored in DO for a given session?
-//note : what does "manages the WebSocket hub" mean?
-// note: does the article say when snapshots are taken and when the VM is taken down (do they wait for the 24h TTL?)
+- Modal VMs have a 24-hour maximum TTL. Before the VM is terminated, its state is captured through Modal's snapshot API — a full point-in-time capture of the filesystem (code, dependencies, build artifacts, environment). The snapshot can be restored into a fresh VM days later.
 
 ```
 Clients (Slack, Web UI, Chrome Extension, VS Code)
@@ -755,12 +752,19 @@ Clients (Slack, Web UI, Chrome Extension, VS Code)
       → Modal Sandbox VM (OpenCode agent, full dev environment)
 ```
 
-### Highlight: Durable Objects for distributed persistence
-// note: it's a feeling from previous conversations, and from the observation that Opencode works for a single server, that DOs offer a way to solve that issue. Reframe if need be. Provide some high-level intro to the usefulness of DO in the context of agents. Spawn research agents on Cloudflare blog. If there is a link to be made with their Agent SDK make it, but don't force it. If you see mutilple way to adress this highlight ask me.
-// note: comment on how it helps with re-attach if it does
+### Highlight: Durable Objects as the coordination layer
 
-### Highlight: how persistence works with ephemeral comput
-**How persistence works with ephemeral compute:** Modal VMs have a 24-hour maximum TTL — compute is disposable. State survives through two mechanisms: conversation state lives in Durable Objects (embedded SQLite), and full VM state is preserved through Modal's snapshot API. This is the key technology question: how do you persist state when the machine is ephemeral? Modal answers with filesystem snapshots — a full point-in-time capture of the VM. Not every platform offers this. On Cloudflare, you would need a different approach (see Moltworker below). On bare Docker, you would need volume mounts or external storage.
+In Part 4, we saw that OpenCode is a single-server agent — it has session management, persistence, and transport, but all scoped to one machine. To make it globally accessible, you need global routing, persistent state that survives restarts, and WebSocket management across clients. This is the gap Ramp filled with Durable Objects.
+
+A Durable Object is a stateful micro-server with a globally unique ID. Any request from anywhere in the world can reach a specific DO by its ID — Cloudflare routes it automatically. Each DO has its own embedded SQLite database (up to 10 GB), and it can hold WebSocket connections. It runs single-threaded, which matches the agent pattern: one session = one sequential execution context.
+
+**What makes DOs useful for agents specifically:**
+- **Global routing without a registry.** The DO ID *is* the session address. No load balancer, no session-affinity configuration, no lookup table. A client in Tokyo and a client in New York both reach the same DO by passing the same ID.
+- **State that survives hibernation.** When no clients are active, the DO hibernates — it is evicted from memory but the WebSocket connections are kept alive at Cloudflare's edge, and the SQLite data persists. Billing stops. When a client sends a message, the DO wakes up, the message is delivered, and processing continues. The client does not know the DO was hibernating.
+- **Re-attach for free.** If a client actually disconnects (browser closed, network drop), a new connection to the same DO ID restores the session. The conversation history is in SQLite. Cloudflare's Agents SDK (which builds on DOs) goes further: it automatically syncs state on reconnection and can resume streaming from where it left off.
+
+**Why a Modal VM is required on top of the DO:**
+A DO is a lightweight JavaScript runtime — it cannot run bash, access a filesystem, or execute agent tools. It is the coordination layer (routing, state, WebSocket), not the execution layer. Code execution happens in a separate VM or container. This is why Ramp pairs DOs with Modal VMs: the DO routes and remembers, the VM computes.
 
 ### Server layers implementation
 
@@ -780,16 +784,18 @@ Clients (Slack, Web UI, Chrome Extension, VS Code)
 **Layers**: ALL (transport, routing, persistence, lifecycle, authentication, network resilience)
 **Link**: [github.com/cloudflare/moltworker](https://github.com/cloudflare/moltworker) — blog: [blog.cloudflare.com/moltworker-self-hosted-ai-agent](https://blog.cloudflare.com/moltworker-self-hosted-ai-agent/)
 
+// note: OpenClaw is not an Agent framework. Research better, it's based on Pi SDK. So you need to distinguish between what is provided by OpenClaw on top of Pi SDK, and what Moltworker then provides on top of that
+
+// note: what do you mean by "Containers (Sandbox SDK)", is it a container or a Sandbox? 
+
 **Description**:
-- **This is a self-hosted personal AI agent, not a job runner.** Persistent conversations, background execution, autonomous scheduling — the full onion.
-- **Use case**: a personal AI agent accessible from anywhere, running on a $5/month Cloudflare Workers Paid plan.
-- Open-source middleware that runs OpenClaw on Cloudflare's Developer Platform. The platform itself provides most of the service layers.
+- **This is a self-hosted personal AI agent.** Persistent conversations, background execution, autonomous scheduling.
 
 **User journey:** the user accesses their agent via a browser, protected by Cloudflare Access (Zero Trust). They chat with the agent, which can browse the web, execute code, and remember context across sessions. They can close the browser and come back — conversations persist. The agent can also run autonomously on a cron schedule with no client connected at all.
 
 **Technical flow:**
 - The browser connects through Cloudflare Access, which enforces identity-based authentication before any request reaches the application.
-- The entrypoint Worker (a V8 isolate) receives the request and routes it to the appropriate Durable Object instance.
+- The Worker receives the request and routes it to the appropriate Durable Object instance.
 - The Durable Object establishes a WebSocket connection with the client and manages the container lifecycle via the Sandbox SDK.
 - The container (a full Linux VM) runs the OpenClaw agent runtime. It has an R2 bucket mounted at `/data/moltbot` via s3fs for persistent storage.
 - When the user goes idle, the container sleeps (configurable via `sleepAfter`). The Durable Object hibernates without dropping the WebSocket.
@@ -804,7 +810,8 @@ Internet → Cloudflare Access (Zero Trust)
         → Agent Runtime
 ```
 
-**The "programmable sidecar" pattern.** The Durable Object acts as a lightweight, always-on control plane for the heavyweight, ephemeral container. It manages the container's lifecycle (sleep after idle, wake on request), routes WebSocket connections, and stores conversation state in SQLite. When the container sleeps, the DO survives. This is Cloudflare's distinctive contribution — different from Kubernetes sidecars, where the sidecar runs alongside the main process. Here, the sidecar *is* the routing and state layer, written in application code.
+### Highlight: how persistence works with ephemeral compute
+**How persistence works with ephemeral compute:** Modal VMs have a 24-hour maximum TTL — compute is disposable. State survives through two mechanisms: conversation state lives in Durable Objects (embedded SQLite), and full VM state is preserved through Modal's snapshot API. This is the key technology question: how do you persist state when the machine is ephemeral? Modal answers with filesystem snapshots — a full point-in-time capture of the VM. Not every platform offers this. On Cloudflare, you would need a different approach (see Moltworker below). On bare Docker, you would need volume mounts or external storage.
 
 **How persistence works without VM snapshots.** Cloudflare Containers do not have Modal's snapshot API. The container filesystem is wiped on sleep. The workaround: mount an R2 bucket (object storage) at `/data/moltbot` via s3fs. Session memory, conversation history, and artifacts live there. R2 survives everything. The pattern is: ephemeral container for compute, mounted object storage for persistence.
 
@@ -812,7 +819,8 @@ Compare this to Ramp's approach: Ramp uses Modal snapshots to freeze and restore
 
 **The trade-off is platform coupling.** Ramp can swap out Modal for another VM provider. Moltworker is built on Cloudflare's specific abstractions — Sandbox SDK, Durable Objects, R2. The platform absorbs complexity, but the exit cost is real.
 
-**How it maps to the Part 4 layers:**
+// note: re-write the persistence highlight, comparing the Modal VM vs Cloudflare. 
+### Server layers implementation
 
 | Layer              | Status      | Implementation                                                                                             |
 | ------------------ | ----------- | ---------------------------------------------------------------------------------------------------------- |
