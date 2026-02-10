@@ -1,24 +1,19 @@
-# Agent SDK for the Rest of Us
+# Agent Frameworks for the Rest of Us
 
-**How do you build an AI agent?**
+**How do you build an AI agent?** There are all these frameworks (LangChain/LangGraph, Vercel AI SDK, PydanticAI, Claude Agent SDK, Mastra, OpenCode) to help you build agents. But I had a hard time pinning down the exact differences between them. It was all very confusing: a clear sign that there were gaps in my knowledge that went deeper than the frameworks' APIs.
 
-That's the question, I started from. 
-Which quickly led me to: 
+**Who is the "Rest of Us"?** I'm probably not the only one confused. I am a PM, so somewhat technical but not overly so. This report is my attempt to share what I've learnt about the topic. There is a chance that it contains inaccuracies or errors that I was not technical enough to spot. All forms of constructive feedback are welcome :)
 
-**There are all these frameworks out there** - Langchain/LangGraph, Vercel AI SDK, PydanticAI, Claude Agent SDK, Mastra, Opencode - to name just a few. 
-That feels very confusing.
-**How are they different?**
-
-I am a PM learning in public.  And this report is my attempt to share what I've learnt about the topic.
-There is a chance that it contains inaccuracies or errors that I was not technical enough to spot. All forms of constructive feedback are welcome :)
-
-Here is the mental map that I built for myself to contrast the various frameworks. 
-Part 2 and part 4 of the report will provide details about respectively the horizontal and the vertical axes.
-Without going into the details, let's say that it splits those frameworks into 3 main categories:
+**Mapping the frameworks**: I need maps to orient myself. I've come to think of frameworks as belonging to one of the following 3 categories.
 - **Orchestration frameworks**: LangGraph, PydanticAI, Mastra, Vercel AI SDK
 - **Agent SDKs**: Claude Agent SDK, Pi SDK
 - **Agent servers**: Opencode
 
+**What you can expect**
+- Part 1: 
+- Part 2: 
+
+// note:please write a single sentence for each part presenting what will be in it. Consider that at this point the reader has no clue what is discussed in other parts, so the set of sentences should consider that the reader has no prior knowledge of the content of the other parts
 
 - **Horizontal axis — where does orchestration live?**
   Orchestration *outside* the agent loop (app-driven) ↔ orchestration *inside* the agent loop (agent-driven).
@@ -33,12 +28,12 @@ But before placing anything on that map, we need to agree on what an "agent" act
 
 # Part 1 - What's an agent, anyway?
 
-**An agent is an LLM running tools in a loop.**
+**An agent is an LLM running tools in a loop**:
+- Simon Willison's one-liner — "An LLM agent runs tools in a loop to achieve a goal" — has become the closest thing to a consensus definition. 
+- Harrison Chase (LangChain) said the same thing differently: "The core concept of an agent has always been to run an LLM in a loop."
+//note: add links to the quotes
 
-**Simon Willison**'s one-liner — "An LLM agent runs tools in a loop to achieve a goal" — has become the closest thing to a consensus definition. 
-**Harrison Chase** (LangChain) said the same thing differently: "The core concept of an agent has always been to run an LLM in a loop."
-
-Three ingredients:
+**So an agent has 3 ingredients**:
 - An LLM
 - Tools
 - A loop.
@@ -47,37 +42,28 @@ Let's unpack each one.
 
 ## What an LLM does
 
-An LLM is a text-completion machine.
-You send it a chain of characters. It predicts the next most probable character, then the next, until it stops.
+**An LLM is a text-completion machine.** You send it a chain of characters. It predicts the next most probable character, then the next, until it stops.
 
-When you ask a question, the sequence of most probable next characters is likely to be a sentence that resembles an answer to your question. 
+When you ask a question, the sequence of most probable next characters is likely to be a sentence that resembles an answer to your question.
 
-**An LLM can only produce text**
-It cannot browse the web.
-It cannot run a calculation using a program.
-It cannot read a file or call an API.
+**An LLM can only produce text.** It cannot browse the web. It cannot run a calculation using a program. It cannot read a file or call an API.
 
 ## What a tool is
 
-A tool gives an LLM capabilities it does not have natively.
+A tool gives an LLM capabilities it does not have natively. Tools enable:
+- **Things LLM cannot do:** access the internet, query a database, execute code.
+- **Things LLM do badly:** arithmetic, find exact-matches in a document...
 
-Tools enable LLM to do:
-- **Things they cannot do:** access the internet, query a database, execute code.
-- **Things they do badly:** arithmetic, find exact-matches in a document...
-
-The LLM cannot execute tools on its own though:
+**The LLM cannot execute tools on its own though:**
 - It can return text that matches a demand for tool-calling.
 - The tool must be run by the program calling the LLM.
-- And the result must be passed to the LLM by the program back to the LLM.
+- And the result must be passed by the program back to the LLM.
 
 ## How LLMs learned to call tools
 
-We said that LLM can only produce text. 
+We said that an LLM can only produce text. So how does it ask for calling a tool? Does it return a text saying "I need to run the calculator" or something like that?
 
-So how does an LLM ask for calling a tool? 
-Does it return a text saying "I need to run the calculator" or something like that?
-
-**To call a tool the LLM is returning a JSON object** that says which tool it wants to run, and with which parameters.
+**To call a tool, the LLM returns a JSON object** that says which tool it wants to run, and with which parameters.
 
 For example, if the LLM wants to check the weather in Paris, instead of responding with text, it returns something like:
 
@@ -89,30 +75,26 @@ For example, if the LLM wants to check the weather in Paris, instead of respondi
 }
 ```
 
-But how did the LLM learn to generate such JSON objects as the *most likely chain of characters* in the middle of a conversation in plain english?
+But how did the LLM learn to generate such JSON objects as the *most likely chain of characters* in the middle of a conversation in plain English?
 
-**Tool calling is not something that existed in the original training data.**
-Nobody writes "output a JSON object to invoke a calculator function" on the internet. 
+**Tool calling is not something that existed in the original training data.** Nobody writes "output a JSON object to invoke a calculator function" on the internet.
 
-**LLM are specifically trained to learn when to use tools** through fine-tuning on tool-use transcripts: 
+**LLMs are specifically trained to learn when to use tools** through fine-tuning on tool-use transcripts:
 - The models are trained on many examples of conversations where the assistant produces structured function invocations, receives results, and continues. OpenAI shipped this first commercially (June 2023, GPT-3.5/GPT-4), and other providers followed.
 - The model does not learn each specific tool. It learns the *general pattern*: when to invoke, how to format the call, how to integrate the result.
 - The specific tools available are described in the prompt — the model reads their names, descriptions, and parameter schemas as text.
 
-**Tool hallucination**: as a consequence of tool training, the model can generate calls to tools that were never provided, or fabricate parameters. UC Berkeley's [Gorilla project](https://gorilla.cs.berkeley.edu/) (Berkeley Function-Calling Leaderboard) has documented this systematically — it is one reason agent frameworks invest in validation and error handling.
+**Tool hallucination is a consequence of tool training.** The model can generate calls to tools that were never provided, or fabricate parameters. UC Berkeley's [Gorilla project](https://gorilla.cs.berkeley.edu/) (Berkeley Function-Calling Leaderboard) has documented this systematically — it is one reason agent frameworks invest in validation and error handling.
 
 ## The two-step pattern
 
 **When you call an LLM with tools enabled, two things can happen:**
-
 1. The model responds with **text** — it has enough information to answer directly.
 2. The model responds with a **tool-call request** — a structured object specifying which tool to call and what arguments to pass.
 
 If the model requests a tool call, *your code* executes it. You send the result back as a follow-up message. The model uses that result to formulate its answer — or to request yet another tool call.
 
-**Tool use always involves at least two model calls.**
-
-In pseudocode:
+**Tool use always involves at least two model calls.** In pseudocode:
 
 ```
 messages = [system_prompt, user_message]
@@ -123,27 +105,31 @@ response = llm(messages, tools=available_tools)
 # Did the model respond with text, or with a tool-call request?
 if response.has_tool_calls:
     for call in response.tool_calls:
-        result = execute(call.name, call.arguments)  # Execute the tool
-        messages.append(call)                         
-        messages.append(tool_result(call.id, result)) # Insert the tool result in the list of messages
+	    # Execute the tool
+        result = execute(call.name, call.arguments)  
+        messages.append(call)
+        
+        # Insert the tool result in the list of messages                         
+        messages.append(tool_result(call.id, result)) 
 
-    # LLM Call 2 — send previous messages augmented with the tool call result (and the available tools - the LLM may do many tool calls before writing and returning a message
+    # LLM Call 2, 3, 4,... — send messages + tool call results + list of available tools
     response = llm(messages, tools=available_tools)
 
 print(response.text)
 ```
 
-Walking through it: the program calls the LLM with the conversation and a list of available tools. If the LLM responds with a tool-call request instead of text, the program runs the tool, appends the result to the conversation, and calls the LLM again. The second call sees the full transcript — including the tool result — and can now produce a text answer.
+// note: is it really a 2 step pattern, it looks like the 2nd LLM call might add to the tool_calls list. How is that different from the next section where we write about the agentic loop?
 
-
-In real SDK code (Anthropic, OpenAI, etc.), the pattern is the same — it just involves more boilerplate: HTTP calls, JSON schemas for tool definitions, message formatting. The pseudocode above captures the logic that matters.
+**In plain english:** 
+- The program calls the LLM with the conversation and a list of available tools. 
+- If the LLM responds with a tool-call request, the program runs the tool, appends the result to the conversation, and calls the LLM again. The second call sees the full transcript — including the tool result
+- If there are more tool calls to execute, it runs the loops once again, until there are no more tool calls and the LLM produces a text answer.
 
 ## The agentic loop
 
-**Many tasks require more than one tool call.**
-A coding assistant might read a file, edit it, run the tests, check output, fix a failing test — all in sequence. The model cannot know in advance how many steps it will need.
+**Many tasks require more than one tool call.** A coding assistant might read a file, edit it, run the tests, check output, fix a failing test — all in sequence. The model cannot know in advance how many steps it will need.
 
-The solution: wrap the two-step pattern in a loop.
+**The solution: wrap the two-step pattern in a loop.**
 
 ```
 messages = [system_prompt, user_message]
@@ -163,13 +149,11 @@ loop:
 print(response.text)
 ```
 
-The model loops: calling tools, receiving results, deciding what to do next, until it produces text instead of another tool call.
+**The model loops:** calling tools, receiving results, deciding what to do next, until it produces text instead of another tool call.
 
-In practice, you add guardrails: a maximum number of iterations, a cost budget, validation checks. But the core mechanism is the same.
+**In practice, you add guardrails:** a maximum number of iterations, a cost budget, validation checks. But the core mechanism is the same.
 
-**What this looks like in practice.**
-
-Here is a simplified trace of an agent booking a restaurant. Each block is one iteration of the loop:
+**What this looks like in practice.** Here is a simplified trace of an agent booking a restaurant. Each block is one iteration of the loop:
 
 ```
 User:      "Find me a good Italian restaurant near the office
@@ -189,11 +173,9 @@ Agent:     "Trattoria Roma is the best rated (4.7★) and has two
             Want me to book one?"
 ```
 
-Four loop iterations. Three tool calls, then a text response that ends the loop. The agent decided which restaurants to look up, which one to check availability for first (the highest rated), and when it had enough information to stop. The program just ran the tools and passed results back.
+**Four loop iterations.** Three tool calls, then a text response that ends the loop. The agent decided which restaurants to look up, which one to check availability for first (the highest rated), and when it had enough information to stop. The program just ran the tools and passed results back.
 
 ## What to keep in mind
-
-Three points from this section that carry through the rest of the report:
 
 - **An agent is an LLM + tools + a loop.** Every agent framework — PydanticAI, LangGraph, Claude Agent SDK, OpenAI Agents SDK — implements some version of this loop. They differ in what they build *around* it.
 - **Tool calling is a two-step pattern.** The model requests, your code executes, the result feeds back. This is important because it means someone has to *run* those tools — and where that happens is an architectural decision.
@@ -254,7 +236,6 @@ This section focuses on the question: **who owns that logic? who owns the contro
 ## App-driven control flow
 
 **Within the app-driven control flow, the app owns the state machine**:
-
 - The developer defines the graph: the nodes (steps), the edges (transitions), the routing logic.
 - The LLM is a component called within each step but the app enforces the flow defined by the developer.
 
