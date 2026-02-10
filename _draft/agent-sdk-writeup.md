@@ -10,10 +10,11 @@
 - **Agent servers**: Opencode
 
 **What you can expect**
-- Part 1: 
-- Part 2: 
-
-// note:please write a single sentence for each part presenting what will be in it. Consider that at this point the reader has no clue what is discussed in other parts, so the set of sentences should consider that the reader has no prior knowledge of the content of the other parts
+- Part 1: What "agent" means — the three ingredients every agent is made of.
+- Part 2: How frameworks differ in who decides what happens next — your code or the model.
+- Part 3: Why the most powerful agent tool is a Unix shell, and what that implies.
+- Part 4: What it takes to turn an agent library into an agent server.
+- Part 5: Real projects that made different architectural choices, and what you can learn from them.
 
 - **Horizontal axis — where does orchestration live?**
   Orchestration *outside* the agent loop (app-driven) ↔ orchestration *inside* the agent loop (agent-driven).
@@ -29,9 +30,8 @@ But before placing anything on that map, we need to agree on what an "agent" act
 # Part 1 - What's an agent, anyway?
 
 **An agent is an LLM running tools in a loop**:
-- Simon Willison's one-liner — "An LLM agent runs tools in a loop to achieve a goal" — has become the closest thing to a consensus definition. 
-- Harrison Chase (LangChain) said the same thing differently: "The core concept of an agent has always been to run an LLM in a loop."
-//note: add links to the quotes
+- [Simon Willison](https://simonwillison.net/2025/Sep/18/agents/)'s one-liner — "An LLM agent runs tools in a loop to achieve a goal" — has become the closest thing to a consensus definition.
+- [Harrison Chase](https://blog.langchain.com/deep-agents/) (LangChain) said the same thing differently: "The core algorithm is actually the same — it's an LLM running in a loop calling tools."
 
 **So an agent has 3 ingredients**:
 - An LLM
@@ -94,36 +94,27 @@ But how did the LLM learn to generate such JSON objects as the *most likely chai
 
 If the model requests a tool call, *your code* executes it. You send the result back as a follow-up message. The model uses that result to formulate its answer — or to request yet another tool call.
 
-**Tool use always involves at least two model calls.** In pseudocode:
+**Tool use always involves at least two model calls.**:
+- The first model call returns a tool call request
+- The second model call is provided the conversation + the result of the tool call.
 
 ```
 messages = [system_prompt, user_message]
 
-# LLM Call 1 — send previous messages + list of available tools to the LLM
+# LLM Call 1 — send the conversation + list of available tools
 response = llm(messages, tools=available_tools)
 
 # Did the model respond with text, or with a tool-call request?
-if response.has_tool_calls:
-    for call in response.tool_calls:
-	    # Execute the tool
-        result = execute(call.name, call.arguments)  
-        messages.append(call)
-        
-        # Insert the tool result in the list of messages                         
-        messages.append(tool_result(call.id, result)) 
+if response.has_tool_call:
+    tool_call = response.tool_call
+    result = execute(tool_call.name, tool_call.arguments)
+    messages.append(tool_call)
+    messages.append(tool_result(tool_call.id, result))
 
-    # LLM Call 2, 3, 4,... — send messages + tool call results + list of available tools
+    # LLM Call 2 — send the conversation again, now including the tool result
     response = llm(messages, tools=available_tools)
 
-print(response.text)
 ```
-
-// note: is it really a 2 step pattern, it looks like the 2nd LLM call might add to the tool_calls list. How is that different from the next section where we write about the agentic loop?
-
-**In plain english:** 
-- The program calls the LLM with the conversation and a list of available tools. 
-- If the LLM responds with a tool-call request, the program runs the tool, appends the result to the conversation, and calls the LLM again. The second call sees the full transcript — including the tool result
-- If there are more tool calls to execute, it runs the loops once again, until there are no more tool calls and the LLM produces a text answer.
 
 ## The agentic loop
 
