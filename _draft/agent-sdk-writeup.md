@@ -169,57 +169,49 @@ Agent:     "Trattoria Roma is the best rated (4.7★) and has two
 ## What to keep in mind
 
 - **An agent is an LLM + tools + a loop.** Every agent framework — PydanticAI, LangGraph, Claude Agent SDK, OpenAI Agents SDK — implements some version of this loop. They differ in what they build *around* it.
-- **Tool calling is a two-step pattern.** The model requests, your code executes, the result feeds back. This is important because it means someone has to *run* those tools — and where that happens is an architectural decision.
-- **The model decides when to stop.** In the simplest case, it stops when it produces text instead of a tool call. But in real systems, stop conditions are a design surface: budgets, validation, user acceptance, timeouts.
+- **Tool calling is a two-step pattern.** The model requests, your code executes, the result feeds back. 
+- **The model decides when to stop.** In the simplest case, it stops when it produces text instead of a tool call. But in real systems, stop conditions can be implemented based on budgets, validation, user acceptance, timeouts.
 
 ---
 
 # Part 2 - Where orchestration lives
 
-In part 2 we examine the difference between the *Orchestration frameworks* and the *Agent SDKs*. The limit between the 2 can be tenuous, especially with the orchestration frameworks venturing into the Agent SDK's space.
-
-Who is responsible for the orchestration? That's where the difference lives. 
-
-## How we got here
+**An agent needs a plan: which tools to call, in which order, and when to stop.** Someone has to make those decisions. In some frameworks, you define the plan in code. In others, you hand the model a goal and let it figure it out. This is the main axis that separates orchestration frameworks from agent SDKs.
+## From prompting to agents
 
 <!-- TODO: illustration — progression from single prompt → prompt chain → workflow with tools → agent loop. A horizontal timeline or staircase showing the progression. Reference: the "historical ladder" from Anthropic's "Building Effective Agents" blog post. -->
 
-1️⃣ **At first, people would build one massive prompt and submit it to the LLM.**
-They would cram all the instructions, context, examples, and output format into a single call and hope the LLM would get it right in one pass. Using the restaurant example from Part 1:
+### 1️⃣ The Massive Prompt
 
-> "You are a restaurant assistant. When the user asks for a restaurant, search the web for options near the specified location, then look up reviews for each result, then check availability for the best-rated one, then write a friendly recommendation with available time slots. Format your response as a short paragraph. The user says: Italian food near 123 Main St for Friday evening, party of 4."
-
-Everything in one shot: the task description, the steps, the formatting, the input.
+At first people would cram all the instructions, context, examples, and output format into a single call and hope the LLM would get it right in one pass.
 
 **This was brittle:**
 - LLMs were unreliable on tasks that require multiple steps or intermediate reasoning.
 - Long prompts produced less predictable output: some parts of the prompt would get overlooked or confuse the model. The longer the prompt, the less consistent the results over multiple runs.
 - Long prompts were easy to break: even small changes could alter dramatically the behaviour.
 
-This made massive prompts hard to fix and improve.
+### 2️⃣ The Prompt Chain
 
-2️⃣ **Getting better results meant breaking things down.**
-Instead of one monolithic prompt, you split the task into smaller steps — each with its own prompt, its own expected output, and its own validation logic. The output of step 1 feeds into step 2, and so on.
+Getting better results meant breaking things down. Instead of one monolithic prompt, you split the task into smaller steps — each with its own prompt, its own expected output, and its own validation logic. The output of step 1 feeds into step 2, and so on.
 
-The restaurant task becomes: 
-> Step 1 — parse the user request into structured data. 
-> Step 2 — search for restaurants. 
-> Step 3 — rank by reviews. 
-> Step 4 — check availability. 
-> Step 5 — format the response. Each step has a focused prompt, and you can fix or improve one step without breaking the others.
+With prompt chaining each step has a narrow, well-defined responsibility.
 
-**This is prompt chaining**: a sequence of LLM calls where each step has a narrow, well-defined responsibility.
+### 3️⃣ The Workflow
 
-3️⃣ **Then tools enter the picture.**
-Once you add tool calling (Part 1), each step in the chain can now do real work — query a database, search the web, validate data against an API. The chain becomes a **workflow**: a sequence of steps, some of which involve LLM calls, some of which invoke tools, connected by routing logic.
+Once you add tool calling, each step in the chain can now do real work — query a database, search the web, validate data against an API. The chain becomes a workflow: a sequence of steps implementing the agentic loop, connected by routing logic.
 
-4️⃣ **With better models, another option emerged**: instead of defining the workflow step by step, give the agent tools and a goal, and let it figure out the steps on its own. We are somewhat back to 1️⃣ — one prompt, one call — but with the addition of tool calling and much better (thinking) models. This is agent-driven control flow, and it coexists with workflows rather than replacing them.
+### 4️⃣ The "General Agent"
+
+With better models, another option emerged: instead of defining the workflow step by step, give the agent tools and a goal, and let it figure out the steps on its own.
+
+We are somewhat back to 1️⃣ — one prompt, one call — but with the addition of tool calling and much better (thinking) models. This is agent-driven control flow, and it coexists with workflows rather than replacing them.
+### An "orchestration" definition
 
 Whether you define the workflow yourself (steps 2️⃣ and 3️⃣) or let the agent figure it out (step 4️⃣), someone has to decide the structure — the sequence of actions that leads to the outcome. That's what orchestration means.
 
 > **Orchestration** is the logic that structures the flow: the sequence of steps, the transitions between them, and how the next step is determined.
 
-This section focuses on the question: **who owns that logic? who owns the control flow?**
+This section focuses on the question: who owns that logic? who owns the control flow?
 
 - **App-driven control flow**: the logic is decided by the developer and "physically constrained" through code.
 - **Agent-driven control flow**: the logic is suggested by the developer and it is left to the LLM / agent to follow the instructions.
@@ -260,6 +252,7 @@ workflow.add_route("check_avail"  → "respond")
 
 result = workflow.run("Italian restaurant near the office, Friday, 4 people")
 ```
+
 On top of that, the developer defines the functions for each step. For example, `search_restaurants` might use the LLM internally to parse search results:
 
 ```
@@ -278,24 +271,20 @@ How the main orchestration frameworks compare:
 
 There are other such orchestration frameworks. Cues to recognize app-driven control flows:
 - Explicit stage transitions in code or config.
-- Multiple different prompts or schemas per stage.
+- Multiple different prompts or schemas.
 - The app decides when to request user input.
-- The model may call tools *within* a step, but the **macro progression** is app-owned.
+- The model may call tools *within* a step, but the macro progression is app-owned.
 
 ## Agent-driven control flow
 
-**With Agent-driven control flow, the agent decides what happens next**:
-
-- The agent is provided with a goal, some context and instructions, and some tools. 
-- The agent decides which tools to call in which order: there is no explicit graph. No developer-defined state machine. 
-
+**With Agent-driven control flow, the agent decides what happens next.**
 It looks like this:
 
 ```
 agent = Agent(
     model = "claude-sonnet",
     system_prompt = "You are a coding assistant. Read files, edit code,
-                     run tests. Fix the failing test in src/auth.ts.",
+                     run tests.",
     tools = [read_file, edit_file, run_tests, search_codebase], 
     max_turns = 50
 )
@@ -310,17 +299,7 @@ The agent decides:
 - Whether to try a different approach after a failure.
 - When to stop.
 
-**The orchestration moves *inside* the agent loop**: it's encoded in the system prompt, the available tools, and the model's own judgment.
-
-This is the model behind coding agents like Claude Code, Codex, and similar systems. Anthropic renamed their Claude Code SDK to the Claude Agent SDK precisely because this pattern applies beyond coding — they use the same loop for research, video creation, and note-taking.
-
-Typical signs of agent-driven control flow:
-- **The hosting app is thin**: it relays messages, enforces permissions, renders results.
-- **The logic lives in the harness** in the form of system prompts, context files, skills and other "capabilities" that steer the agent towards the expected outcome.
-
-## The harness
-
-When there is no developer-defined graph, the harness is what keeps the agent on track. It is the set of assets and capabilities provided to the agent to steer it towards the expected outcome:
+**The orchestration moves *inside* the agent loop**: it's not enforced by the app but left to the model's own judgment. Agent SDKs provide a "harness" that can be customized by the developer. This harness provide orchestration cues to the model to steer it towards the expected goals:
 
 - **System prompts, policies and instructions (in agent.md or similar)**: the rules of the road: what to do, what not to do, how to behave.
 - **Tools**: what pre-packaged tools are available to search, fetch, edit, run commands, apply patches.
@@ -329,16 +308,13 @@ When there is no developer-defined graph, the harness is what keeps the agent on
 - **Hooks / callbacks** — places the host can intercept or augment behavior: logging, approvals, guardrails.
 
 This report examines three agent SDKs that implement agent-driven control flow:
-
 - **Claude Agent SDK** exposes the Claude Code engine as a library, with all the harness elements above built in.
-- **OpenCode** ships as a server with an HTTP API — the harness plus a ready-made service boundary (see Part 4).
 - **Pi SDK** is an opinionated, minimalistic framework. Notably it can work in environments without bash or filesystem access, relying on structured tool calls instead.
+- **OpenCode** ships as a server with an HTTP API — the harness plus a ready-made service boundary.
 
-Part 4 examines how these three differ in what they provide and what you need to build yourself.
-
-**Note**: Orchestration frameworks are adding modes to create agent-driven control flows:
-- LangChain added "Deep Agents" in July 2025. The `deepagents` package ships all of this as built-in middleware on top of LangGraph.
-- PydanticAI lists "Deep Agents" as a first-class multi-agent pattern — planning, filesystem operations, task delegation, sandboxed code execution. 
+There are other agent-driven frameworks. Typical signs of agent-driven control flow:
+- **The hosting app is thin**: it relays messages, enforces permissions, renders results.
+- **The logic lives in the harness** in the form of system prompts, context files, skills and other "capabilities" that steer the agent towards the expected outcome.
 
 ## What to keep in mind
 
@@ -347,23 +323,24 @@ Three points from this section:
 - **Orchestration is about who decides what happens next.** In app-driven control flow, the developer defines the graph. In agent-driven control flow, the model decides based on goals, tools, and prompts. Both are valid — the choice depends on how predictable the task is.
 - **Orchestration frameworks handle the plumbing.** Whether you choose app-driven or agent-driven, frameworks give you the loop, tool wiring, and error handling so you can focus on the logic — not on parsing JSON and managing retries.
 - **In agent-driven systems, the harness replaces the graph.** The agent has more freedom, but it is not unsupervised. System prompts, permissions, skills, and hooks are what steer it. The harness is the developer's control surface when there is no explicit workflow.
+- **Orchestration libraries are adding agent-driven control flow**: LangChain and PydanticAI both have "Deep Agents".
 
-# Part 3 - 2 tools to rule them all: Bash and the filesystem
+//note : add links to Langchain and PydanticAI Deep Agents page in their respective docs
+
+# Part 3 - Two tools to rule them all
 
 Agent SDKs assume access to Bash and the filesystem. These tools provide powerful options. But they also impose some architectural requirements.
-
+// note: write a better intro
 ## The limits of predefined tools
 
-**Tools define what the agent can do.**
-
-If you give it `search_web`, `read_file`, and `send_email`, those are its capabilities. Nothing more.
+**Tools define what the agent can do.** If you give it `search_web`, `read_file`, and `send_email`, those are its capabilities. Nothing more.
 
 **Every capability must be anticipated and implemented in advance**:
 - Want the agent to compress a file? You need a `compress_file` tool. 
 - Want it to resize an image? You need a `resize_image` tool. 
 - Want it to check disk space, parse a CSV, or ping a server? Each one requires a tool.
 
-**Even slight changes in the task require updating the tool set.** Say you built a `send_email(to, subject, body)` tool. Now the user wants to attach a file — you need an `attachments` parameter. Then they want to CC someone — another parameter. Each small requirement change means updating the tool's schema and implementation. And every new version has to be tested, documented, and maintained.
+**Even slight changes in the task require updating the tool set.** Say you built a `send_email(to, subject, body)` tool. Now the user wants to attach a file — you need an `attachments` parameter. Then they want to CC someone — another parameter. Each small requirement change means updating the tool's schema and implementation. 
 
 **Designing an effective tool list is a hard balance to strike**. Anthropic's [guidance on tool design](https://www.anthropic.com/engineering/writing-tools-for-agents) puts it directly: "Too many tools or overlapping tools can distract agents from pursuing efficient strategies." But too few tools, or tools that are too narrow, can prevent the agent from solving the problem at all.
 
@@ -373,7 +350,9 @@ If you give it `search_web`, `read_file`, and `send_email`, those are its capabi
 
 It is the standard way to interact with Unix-like systems (Linux, macOS). You type commands, the shell executes them, you see the output.
 
-Consider a task like: "find all log files from this week, check which ones contain errors, and count the number of errors in each." With predefined tools, you would need `list_files` with date filtering, `search_file` to find matches, `count_matches` per file — three separate tools, plus the logic to combine the results. With bash:
+Consider a task like: "find all log files from this week, check which ones contain errors, and count the number of errors in each." 
+- With predefined tools, you would need `list_files` with date filtering, `search_file` to find matches, `count_matches` per file — three separate tools, plus the logic to combine the results. 
+- With bash: 3 commands. No tool definitions, no schema changes if the task evolves.
 
 ```bash
 # Find log files from the last 7 days
@@ -387,8 +366,6 @@ for f in $(find . -name "*.log" -mtime -7); do
   echo "$f: $(grep -c 'ERROR' "$f") errors"
 done
 ```
-
-Three commands. No tool definitions, no schema changes if the task evolves.
 
 ### Why does bash matter for agents?
 
@@ -404,13 +381,13 @@ Three commands. No tool definitions, no schema changes if the task evolves.
 ### Bash is not just more flexible — it is also faster.
 
 **Each tool call means an additional inference. Calling a lot of tools is expensive**: 
-- Remember the two-step pattern from Part 1: the model requests a tool call, the system executes it, the result feeds back. 
-- For a task requiring ten tool calls, that is ten inference passes, each one reading the entire (growing) context.
+- Remember the two-step pattern: the model requests a tool call, the system executes it, the result feeds back. 
+- For a task requiring 10 tool calls, that is 10 inference passes.
 
 **With bash, the agent can write a script that chains multiple operations together and save on intermediate inferences**:
 - The [CodeAct research paper](https://arxiv.org/abs/2402.01030) (ICML 2024) found code-based actions achieved up to 20% higher success rates than JSON-based tool calls.
-- [Anthropic](https://www.anthropic.com/engineering/code-execution-with-mcp) and [Cloudflare's Code Mode](https://blog.cloudflare.com/code-mode/) experiment confirmed that writing code beats tool calling
 - Manus adopted a similar approach from their launch using [fewer than 20 atomic functions](https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus), and offload the real work to generated scripts running inside a sandbox.
+- [Anthropic](https://www.anthropic.com/engineering/code-execution-with-mcp) and [Cloudflare's Code Mode](https://blog.cloudflare.com/code-mode/) experiment confirmed that writing code beats tool calling
 
 ## The filesystem as the universal persistence layer
 
@@ -420,7 +397,7 @@ To persist an information, a user-facing artifact, a plan or intermediate result
 - A `save_note(title, content)` tool works for text notes. But what about images? JSON structures? Binary files? A directory of related files?
 - The tool's schema defines and limits what can be stored. Each storage mechanism has its own interface, its own constraints.
 
-**The filesystem has no predefined schema:**
+**The filesystem has no predefined schema or constraints:**
 - A file can contain anything: Markdown, JSON, images, binaries, code. A directory can organize files however makes sense. 
 - The agent decides where to put it, what to write, what to name it, how to structure it.
 
@@ -433,8 +410,8 @@ To persist an information, a user-facing artifact, a plan or intermediate result
 - **Bash is a universal tool.** Instead of anticipating every capability and implementing a specific tool, you give the agent access to the Unix environment. It can compose arbitrary operations from basic primitives — and LLMs are already trained on how to do this.
 - **The filesystem is universal persistence.** Instead of defining schemas for what the agent can store, you give it a directory. It can write any file type, organize however makes sense, and the files persist across sessions for free.
 - **All major agent SDKs assume both.** The Claude Agent SDK, OpenCode, and Codex all ship bash and filesystem tools as built-in. Pi SDK is a notable exception — it can work without filesystem access.
-- **This has architectural consequences.** Bash and filesystem access require a runtime that provides them. The workaround — containers, VMs, sandboxes — represents a shift from "functions as units of compute" to "sessions as units of compute."
-- **An alternative is emerging: reimplement the interpreter.** Vercel's [`just-bash`](https://github.com/vercel-labs/just-bash) is a bash interpreter written in TypeScript — 75+ Unix commands reimplemented with a virtual in-memory filesystem. No real shell, no real filesystem, no container needed. It is the tool behind the d0 results cited above. Pydantic's [`monty`](https://github.com/pydantic/monty) does the same for Python: a subset interpreter written in Rust, where `open()`, `subprocess`, and `exec()` simply do not exist. The trade-off is language completeness — neither covers the full language — but when what the agent needs is tool orchestration rather than arbitrary code, that is often enough.
+- **This has architectural consequences.** Bash and filesystem access require a runtime that provides them. 
+- **An alternative is emerging: reimplement the interpreter.** Vercel's [`just-bash`](https://github.com/vercel-labs/just-bash) is a bash interpreter written in TypeScript — 75+ Unix commands reimplemented with a virtual in-memory filesystem. No real shell, no real filesystem, no container needed. Pydantic's [`monty`](https://github.com/pydantic/monty) does the same for Python: a subset interpreter written in Rust, where `open()`, `subprocess`, and `exec()` simply do not exist. 
 
 
 # Part 4 - Agent SDK to Agent Server: crossing the service boundary
@@ -445,38 +422,34 @@ This works well for many use cases. But if you want to build something like Chat
 
 Part 4 explains the difference between the two, and what you need to build to get from one to the other.
 
+//note: rewrite the intro
+
 ## What's an Agent "SDK" anyway?
 ### Libraries and services
 
-**Think of the difference between Excel and Google Sheets.**
+### Think of the difference between Excel and Google Sheets.
 
 An Excel spreadsheet lives on your machine. Nobody else can see it while you're working. It exists on your machine and only your machine.
 
-Google Sheets lives on Google's servers. You open it in a browser, but the spreadsheet is not on your machine. You can close your browser and it's still there. You can open it from your phone, from another laptop, share it with colleagues who edit it at the same time. Google Sheets keeps running whether or not you're connected.
+Google Sheets lives on Google's servers. You open it in a browser, but the spreadsheet is not on your machine. You can close your browser and it's still there. You can open it from your phone, from another laptop. It keeps running whether or not you're connected.
 
-Same capability (a spreadsheet), two ways to package it:
+Excel behaves in this example like a library, it's embedded. Google Sheets is "hosted": it lives behind the service boundary. It's a service.
 
-1. **Embedded** — runs on your machine. Excel, a calculator app, a file on your disk. When your machine is off, it's off.
+**The lifecycle of a service is not bound to the lifecycle of the client that is calling it.** The service boundary is not just about separate physical machines — it is about whether a capability runs inside an application or as a separate, independent process. An application calls a library directly; it connects to a service over a protocol.
 
-2. **Hosted** — runs on someone else's machine. Google Sheets, ChatGPT, your email. You connect to it over the network. It keeps going after you disconnect.
-
-The boundary between your machine and the remote one is the **service boundary**.
-
-More precisely, the distinction is not about physical machines — it is about whether a capability runs inside your application or as a separate, independent process. Your application calls a library directly; it connects to a service over a protocol.
-
-**A more technical example: databases.**
+### A more technical example: databases.
 
 SQLite is embedded. Your application links the library, calls functions directly. No service boundary. When your app exits, SQLite exits.
 
 PostgreSQL is hosted. It runs as a separate server process. Your application connects over a socket, sends SQL as messages, receives results. Service boundary. PostgreSQL keeps running after your app disconnects.
 
-Same domain (relational database), two packaging modes.
-
 <!-- TODO: illustration — two diagrams side by side. Left: "Embedded" showing your machine with the app inside it. Right: "Hosted" showing your machine connecting over the network to a server with the app inside it. The network connection is the service boundary. -->
 
-### What is the difference between an Agent SDK and a "regular agent"
+### What is the difference between an Agent SDK and a regular coding agent?
 
-An Agent SDK provides the same kind of capabilities you would expect from a coding agent — but as functions you call from your own code:
+What's the difference between Claude Agent SDK and Claude Code, between Codex SDK and Codex, between Pi coding agent and Pi SDK?
+
+An Agent SDK provides the same kind of capabilities you would expect from a coding agent — but as a "programmable interface" (API) instead of a user interface
 
 - **Send a prompt, get a response** — the equivalent of typing a message in Claude Code. In the SDK: `query(prompt)`.
 - **Resume a previous conversation** — pick up where you left off, with full context. In the SDK: pass a `sessionId`.
@@ -494,11 +467,9 @@ async for message in query(
     print(message)
 ```
 
-The difference between an "Agent SDK" and a "regular agent" such as Claude Code is that it provides a "programmable interface" (API) instead of a user interface. 
-
 With an Agent SDK, you may:
-- **Automate** tasks that an agent is better suited to manage. Trigger the agent, let it run to completion — no human in the loop. Hook into the agent's behavior to log actions, enforce constraints, or get structured results instead of terminal text.
-- **Extend** an existing app with an agentic feature — embed agent capabilities inside an application where a user interacts with the agent through your own interface, not the agent's CLI.
+- **Automate** tasks
+- **Extend** an existing app with agentic features
 
 **Example: automated code review in CI.**
 - You run the Claude Agent SDK in a GitHub Actions job. 
