@@ -176,7 +176,10 @@ Agent:     "Trattoria Roma is the best rated (4.7★) and has two
 
 # Part 2 - Where orchestration lives
 
-**An agent needs a plan: which tools to call, in which order, and when to stop.** Someone has to make those decisions. In some frameworks, you define the plan in code. In others, you hand the model a goal and let it figure it out. This is the main axis that separates orchestration frameworks from agent SDKs.
+**A first segmentation axis is looking at where orchestration lives: in the app or in the agent**. In this part, we'll look into 
+- What orchestration means
+- How "orchestration framework" let you define an app-driven control through code 
+- How "Agent SDKs" rely on goals and a harness to steer the agent but let it figure it out.
 ## From prompting to agents
 
 <!-- TODO: illustration — progression from single prompt → prompt chain → workflow with tools → agent loop. A horizontal timeline or staircase showing the progression. Reference: the "historical ladder" from Anthropic's "Building Effective Agents" blog post. -->
@@ -323,14 +326,13 @@ Three points from this section:
 - **Orchestration is about who decides what happens next.** In app-driven control flow, the developer defines the graph. In agent-driven control flow, the model decides based on goals, tools, and prompts. Both are valid — the choice depends on how predictable the task is.
 - **Orchestration frameworks handle the plumbing.** Whether you choose app-driven or agent-driven, frameworks give you the loop, tool wiring, and error handling so you can focus on the logic — not on parsing JSON and managing retries.
 - **In agent-driven systems, the harness replaces the graph.** The agent has more freedom, but it is not unsupervised. System prompts, permissions, skills, and hooks are what steer it. The harness is the developer's control surface when there is no explicit workflow.
-- **Orchestration libraries are adding agent-driven control flow**: LangChain and PydanticAI both have "Deep Agents".
-
-//note : add links to Langchain and PydanticAI Deep Agents page in their respective docs
+- **Orchestration libraries are adding agent-driven control flow**: [LangChain Deep Agents](https://blog.langchain.com/deep-agents/) and [PydanticAI](https://ai.pydantic.dev/multi-agent-applications/) both list deep agents as a first-class pattern.
 
 # Part 3 - Two tools to rule them all
 
-Agent SDKs assume access to Bash and the filesystem. These tools provide powerful options. But they also impose some architectural requirements.
-// note: write a better intro
+**The tools provided to an agent reveal the designer's "inductive bias": how they think things should be done**. This structure can be both supporting when the task is beyond the model's ability to figure it out, and limiting in terms of available strategies to reach a goal. 
+
+**Bash and the file system in contrast are universal tools** that Agent SDKs have made a choice to consider a given. In this part, I'll look into why and how those tools change the game.
 ## The limits of predefined tools
 
 **Tools define what the agent can do.** If you give it `search_web`, `read_file`, and `send_email`, those are its capabilities. Nothing more.
@@ -416,13 +418,11 @@ To persist an information, a user-facing artifact, a plan or intermediate result
 
 # Part 4 - Agent SDK to Agent Server: crossing the service boundary
 
-Agent SDKs are libraries. They run on your machine, inside your application. When your application stops, the agent stops.
+**Agents may be many thing**: ephemeral or long-lived, stateful or stateless, behind-the-scene automated processes or user-facing. Such behaviours imply various technical requirements.
 
-This works well for many use cases. But if you want to build something like ChatGPT — where the agent runs on a server, keeps working after you close the tab, and is accessible from anywhere — you need an agent server.
+Most Agent frameworks are libraries. But OpenCode is a different beast: it has a server-client architecture. Beyond the technicality I had to understand what's the functional impact of this difference. 
 
-Part 4 explains the difference between the two, and what you need to build to get from one to the other.
-
-//note: rewrite the intro
+In this part, I'm looking at how agent behaviours and agent implementation details are related. In particular what technical layers need to be implemented to go from an Agent SDK to an Agent Server (OpenCode).
 
 ## What's an Agent "SDK" anyway?
 ### Libraries and services
@@ -528,11 +528,10 @@ OpenCode ships as a server with most layers built in.
 
 ## What to keep in mind
 
-- **Library vs service is the fundamental question.** The same capability — the agent loop — can run embedded (in your process) or hosted (behind a service boundary). The choice depends on whether you need independent lifecycle, multiple clients, or remote access.
-- **Start with the SDK.** Most use cases — CI automation, embedded search, internal tools — work fine with the agent running inside your process. You only need a server when the agent must outlive the client.
-- **The server layers are cumulative.** Transport, routing, persistence, lifecycle — each adds complexity. You don't need all of them. A job agent needs transport and nothing else. Background continuation needs all four.
+- **An Agent SDK is a library. An Agent Server is a service.** The SDK runs inside your process — when it stops, the agent stops. A server runs independently — the agent survives disconnection.
+- **Crossing the service boundary means building four layers:** transport (how the client talks to the server), routing (how messages reach the right session), persistence (how state survives restarts), lifecycle (how the agent runs without a client connected).
+- **OpenCode is the only agent SDK that ships as a server.** It provides all four layers out of the box, scoped to a single machine. For global routing, multi-tenant access, or cloud deployment, you build the remaining pieces yourself.
 
-// note: rewrite what to keep in mind. Don't generalize, just recap the key points
 # Part 5 — Agent architectures by example
 
 It's possible to cross the service boundary without rebuilding everything OpenCode provides. Depending on the use case, you may need to implement only some of the layers. 
@@ -555,17 +554,13 @@ Part 5 walks through real projects to illustrate how agents are assembled from d
 - **Use case**: a job that is best performed by an agent, i.e. extract structured data from a document.
 - A ~100-line project that wraps the Claude Agent SDK.
 
-**User journey:** the client sends a POST request with a prompt and stays connected. The response streams back in real time. When the agent finishes, the results are available immediately. There is no second request.
-
-// note: is the artifact different from the aggregated streamed response?
+**User journey:** the client sends a POST request with a prompt and stays connected. The agent's raw output streams back in real time — progress messages, tool calls, intermediate results. When the agent finishes, the Worker collects the final output files (the artifacts) and stores them in KV and returns it to the client.
 
 **Technical flow:**
-- The Worker receives the POST and spins up a Cloudflare Sandbox .
+- The Worker receives the POST and spins up a Cloudflare Sandbox.
 - The agent runs inside the sandbox using the Claude Agent SDK's `query()` function. It reads, writes files, runs bash commands — all within the container.
-- The agent's stdout is streamed back through the Worker to the client as chunked HTTP.
-- When the agent finishes, the Worker reads the output files (e.g. `fetched.md`, `review.md`) from the sandbox filesystem, stores them in Cloudflare KV, and destroys the sandbox.
-
-//note: why does it store the artifact in a KV? Is the artifact available to the client later on? Is it different from the streamed response?
+- The agent's stdout is streamed back through the Worker to the client as chunked HTTP. This is the live feed — a mix of everything the agent does.
+- When the agent finishes, the Worker reads the output files (e.g. `fetched.md`, `review.md`) from the sandbox filesystem. The Worker stores them in Cloudflare KV (keyed by a cookie) so the client can retrieve them after the sandbox is destroyed.
 
 ```
 Browser → HTTP POST
@@ -775,16 +770,14 @@ The 2 projects made different design decisions:
 
 - **Not every use case needs all the layers.** Claude in the Box ships a useful product with just HTTP streaming and KV storage.
 - **Transport is a spectrum — pick the simplest that fits.** Chunked HTTP for job agents (Claude in the Box), SSE for streaming with reconnection (sandbox-agent), WebSocket for bidirectional interaction and multiplayer (Ramp, Moltworker). Each step up adds capability and complexity.
-- **Background continuation is the hardest layer.** It requires persistent routing, state that outlives compute, and reconnection logic. This single requirement drives most of the architectural complexity in Ramp and Moltworker.
-  // note : please provide explanations for this claim in the chat
-- **Coordination and execution are separate concerns.** Both Ramp and Moltworker split the architecture in two: a lightweight coordination layer (Durable Objects) that routes, stores state, and holds WebSocket connections, and a heavyweight execution layer (Modal VM, Cloudflare Container) that runs the agent. The coordinator outlives the compute.
-  // note: can't we say that's related to the stateful vs stateless decision? Let's frame this better
+- **Background continuation requires decoupling the agent from the HTTP handler.** The agent runs in its own process or container, not inside the request.
+- **Statefulness is the main design choice and the principal source of complexity:** resumable conversations require persistent routing (so the client finds the right session), storage and coordination layers that outlive the agent execution environment.
 
 ---
 
 ## Bibliography
 
-### Foundational
+	### Foundational
 
 - **Anthropic — Building Effective Agents** (2024)
   The canonical overview of agent patterns: prompt chaining, routing, parallelization, orchestrator-workers, evaluator-optimizer. Introduces the progression from workflows to autonomous agents.
