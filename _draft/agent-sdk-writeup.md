@@ -477,8 +477,8 @@ With an Agent SDK, you may:
 - There is no service boundary: the agent is instantiated within the GitHub Actions runner process, and is constrained by that runner's limits — 6-hour max job duration, fixed RAM and disk, no persistent state between runs.
 
 **Example: agentic search in a support app.**
-- A customer support app has a search bar. 
-- When a support agent types a question, the app calls `query()` and the agent searches the knowledge base, ticket history,... The agent synthesizes an answer from multiple sources and returns it to the app, which displays it in the UI.
+- A customer support app adds an agentic search capability to help users refine their query and find the information they need. 
+- The support app user chats with the agent that searches, filters and combine information from the knowledge base, ticket history,... The user can turn its search into a support ticket answer or any other relevant action.
 - The agent is a function call within the app process. When the search completes (or the user navigates away), the session is gone. No agent service boundary.
 
 **In both cases, the agent runs within the host process.** It starts, does its work, and stops. No independent lifecycle. No reconnection. No background continuation.
@@ -489,16 +489,11 @@ With an Agent SDK, you may:
 
 If you want to build a ChatGPT clone, an Agent SDK is a start. But it's not enough.
 
-**An Agent Server is required when the agent must outlive the client:**
+**You need the agent's lifecycle to be decoupled from the client's so that you can**:
 - Access from anywhere, not just a CI job or a bot on your server.
 - Close your browser, come back later, and find the agent still running — or finished.
-- Multiple people connecting to the same agent session.
-- Real-time progress as the agent works.
-
-**This is when the agent's lifecycle must be decoupled from the client's**: 
-- The agent runs in a separate process. 
-- You connect to it over the network. 
-- You disconnect, and it keeps going.
+- Connect multiple people to the same agent session.
+- Get real-time progress as the agent works.
 
 **You cannot just put the SDK on a server and call it done.** The SDK gives you the agent loop. It does not handle what comes with running a process that other people connect to over a network:
 - **Authentication** — who is allowed to talk to this agent, and how do you verify that?
@@ -508,34 +503,19 @@ If you want to build a ChatGPT clone, an Agent SDK is a start. But it's not enou
 
 Authentication and network resilience need to be thought through for any client-server application. Agents require additional layers:
 
-**Transport** — how the user's browser (or app) talks to the agent server. You build an HTTP server that accepts requests and returns agent output. The question is how much real-time interaction you need:
-- **HTTP request/response** — the user submits a task and waits for the complete result. No progress updates while the agent works. 
-- **HTTP + SSE (Server-Sent Events)** — the server streams the agent's output to the user as it happens, but the stream is one-way: server to client. The user watches the agent think and act in real time (like ChatGPT responses appearing token by token) but cannot send anything back until the stream ends.
-- **WebSocket** — a persistent two-way connection. The user can send messages while the agent is working — approve a command, provide clarification, or cancel a task — without waiting for the current stream to finish. WebSocket is also required for multiple people to connect to the same session.
+**Transport** — how the user's browser (or app) talks to the agent server. You build an HTTP server that accepts requests and returns agent output. The question is how much real-time interaction you need. There are multiple options of growing complexity from standard HTTP request/response (the user submits a task and waits for the complete result: no progress updates while the agent works) to Websocket. See focus on the Transport layer in Part 5 for more details.
 
-**Routing** — how each message reaches the right conversation. 
-- Think of the ChatGPT sidebar: you have multiple conversations, you can switch between them, and each new message goes to the one you're looking at. 
-- You build this by assigning a session ID to each conversation and maintaining a registry — a lookup table that maps session IDs to agent processes. 
-- When a message comes in, the server looks up the session ID and forwards the message to the right place.
+**Routing** — how each message reaches the right conversation. You build this by assigning a session ID to each conversation and maintaining a registry — a lookup table that maps session IDs to agent processes. When a message comes in, the server looks up the session ID and forwards the message to the right place.
 
-**Persistence** — how conversations can be accessed and resumed later.
-- The user closes the tab, reopens it the next day. They expect to find their conversation history, the artifacts the agent created, and have the ability to continue where they left off. 
-- You build this by "persisting" the conversation state (messages, context, artifacts). Unless the runtime is run without interruption that means saving the state and reloading it when the user reconnects. 
-- Part 5 shows how different projects solve this differently.
+**Persistence** — how conversations can be accessed and resumed later. You build this by "persisting" the conversation state (messages, context, artifacts). Unless the runtime is run without interruption that means saving the state and reloading it when the user reconnects. Part 5 shows how different projects solve this differently.
 
-**Lifecycle** — what happens when the user closes the tab while the agent is working.
-- Without lifecycle management, you already have a working agent server — it handles requests, streams responses, routes to the right session, and persists state. But the agent runs inside the request handler. When the user disconnects, the connection closes and the agent stops. For longer tasks, you need the agent to survive disconnection. 
-- To do so, first you need to separate the agent process from the request handler. The agent runs in its own container or background process, not inside the HTTP handler. 
-- Then you need to add a supervisor that monitors running agents — tracks which ones are active, detects when they finish or fail, and cleans up resources.
-- Finally you may add a notification mechanism — when the agent finishes, the user needs to know. A Slack message, an email, a push notification, or a status the user can poll.
+**Lifecycle** — what happens when the user closes the tab while the agent is working. When the agent runs inside the request handler, when the user disconnects, the connection closes and the agent stops. For longer tasks, you need the agent to survive disconnection. To do so, first you need to separate the agent process from the request handler. The agent runs in its own container or background process, not inside the HTTP handler. 
 
 <!-- TODO: illustration — concentric circles (onion diagram). Inner circle: "Agent loop (Claude Agent SDK, py-sdk)". Next ring: "Session management". Next ring: "Transport (HTTP/WS)". Next ring: "Routing". Outer ring: "Persistence, lifecycle". Label the whole thing: "What you build with SDK-first". Then show OpenCode as a pre-assembled version with all layers included. -->
 
 ## OpenCode: the only Agent Server
 
-OpenCode ships as a server with most layers built in. But "built in" does not mean "production-ready for every use case."
-
-In particular OpenCode is an agent server for a single machine. To turn it into a distributed, internet-facing service, you need to build the missing pieces yourself — or use a platform that provides them (see the Ramp example in Part 5)
+OpenCode ships as a server with most layers built in. 
 
 | Layer              | OpenCode provides                                                                                                    | What it does not provide                                                                                                                                             |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -552,12 +532,14 @@ In particular OpenCode is an agent server for a single machine. To turn it into 
 - **Start with the SDK.** Most use cases — CI automation, embedded search, internal tools — work fine with the agent running inside your process. You only need a server when the agent must outlive the client.
 - **The server layers are cumulative.** Transport, routing, persistence, lifecycle — each adds complexity. You don't need all of them. A job agent needs transport and nothing else. Background continuation needs all four.
 
+// note: rewrite what to keep in mind. Don't generalize, just recap the key points
+# Part 5 — Agent architectures by example
 
-# Part 5 — Architecture by example
+It's possible to cross the service boundary without rebuilding everything OpenCode provides. Depending on the use case, you may need to implement only some of the layers. 
 
-The "SDK way" and the "Server way" are not the only 2 options you have. There is a number of ways you may take in-between the 2 ends of the spectrum. It all depends on the use case you wish to implement.
+**The single biggest design decision is whether you are building a stateful or stateless agent.** Statefulness can be achieved with an agent being "always on", being hosted on a VPS for example. But that's not scalable: you end up paying even when the agent is idle.
 
-However, given the security concerns around giving a computer to your agent, in many cases you want the agent to be sandboxed. Unless you give an agent its own VPS, the sandbox is most likely ephemeral which adds to the complexity as it may require to implement some persistence.
+**Alternatively relying on ephemeral environments comes with a persistence challenge**: how do you persist the state when the environment is torn down?
 
 Part 5 walks through real projects to illustrate how agents are assembled from different technical bricks, reviewing a variety of architectural choices.
 
@@ -573,13 +555,17 @@ Part 5 walks through real projects to illustrate how agents are assembled from d
 - **Use case**: a job that is best performed by an agent, i.e. extract structured data from a document.
 - A ~100-line project that wraps the Claude Agent SDK.
 
-**User journey:** the client sends a POST request with a prompt and stays connected. The response streams back in real time — the user watches the agent's progress as it works. When the agent finishes, the results are available immediately. There is no polling, no job ID, no second request.
+**User journey:** the client sends a POST request with a prompt and stays connected. The response streams back in real time. When the agent finishes, the results are available immediately. There is no second request.
+
+// note: is the artifact different from the aggregated streamed response?
 
 **Technical flow:**
-- The Worker receives the POST and spins up a Cloudflare Sandbox (an isolated Ubuntu container).
+- The Worker receives the POST and spins up a Cloudflare Sandbox .
 - The agent runs inside the sandbox using the Claude Agent SDK's `query()` function. It reads, writes files, runs bash commands — all within the container.
 - The agent's stdout is streamed back through the Worker to the client as chunked HTTP.
 - When the agent finishes, the Worker reads the output files (e.g. `fetched.md`, `review.md`) from the sandbox filesystem, stores them in Cloudflare KV, and destroys the sandbox.
+
+//note: why does it store the artifact in a KV? Is the artifact available to the client later on? Is it different from the streamed response?
 
 ```
 Browser → HTTP POST
@@ -594,9 +580,14 @@ Browser → HTTP POST
 
 ### Highlight: Why Cloudflare requires two layers: Worker + Sandbox?
 
-The Worker is internet-facing. It receives HTTP requests, routes them, and connects to Cloudflare services like KV and Durable Objects. It sleeps between requests and bills only for the time it runs — cheap and instant. But it runs in a V8 isolate — a lightweight JavaScript sandbox with no filesystem, no shell, and a 30-second CPU time limit. It cannot run the Claude Agent SDK.
+**Cloudflare Workers are like application "valets"**: 
+- They are the frontdoor for internet traffic (they handle HTTP requests) and decide what to do / which services to call. In technical terms, they route, orchestrate and connects to Cloudflare services like KV and Durable Objects. 
+- Additional benefit: Worlers sleep between requests and bills only for the time it runs — cheap and instant. 
+- Limitation: it runs in a V8 isolate — a lightweight JavaScript sandbox with no filesystem, no shell, and a 30-second CPU time limit. It cannot run the Claude Agent SDK.
 
-The Sandbox is the opposite. It is a full Ubuntu container with bash, Node.js, a filesystem, and no time limit — everything the agent needs. But it has no public URL. It cannot receive requests from the internet or talk to Cloudflare services directly.
+**The Sandbox is the opposite**: 
+- It is a full Ubuntu container with bash, Node.js, a filesystem, and no time limit — everything the agent needs. 
+- But it has no public URL. It cannot receive requests from the internet or talk to Cloudflare services directly.
 
 Neither can do the whole job alone. The Worker provides the service boundary (HTTP endpoint, streaming, artifact storage). The Sandbox provides the execution environment (bash, filesystem, long-running agent). The ~100 lines of glue between them wire up the HTTP endpoint, bridge the stream, and collect artifacts.
 
@@ -681,7 +672,7 @@ Now, the agents that sandbox-agent supports speak different native protocols —
 **User journey:** an engineer describes a task in Slack, the web UI, or a Chrome extension. The agent works in the background — the engineer can close the tab, switch clients, come back later from a different device. When done, the agent posts a PR or a Slack notification. Multiple engineers can watch the same session simultaneously.
 
 **Technical flow:**
-- Each task gets a **session** — one session = one Durable Object + one Modal VM + one conversation. The session ID is the permanent address for the task.
+- Each task gets a session — one session = one Durable Object + one Modal VM + one conversation. The session ID is the permanent address for the task.
 - The client connects via WebSocket to a Cloudflare Worker, which routes the connection to the session's Durable Object.
 - The DO is the hub: it holds WebSocket connections from all clients watching this session, stores conversation history in embedded SQLite, and forwards messages to the Modal VM. When the agent produces output, the DO broadcasts it to every connected client.
 - The VM runs OpenCode with a full dev environment: git, npm, pytest, Postgres, Chromium, Sentry integration.
@@ -700,7 +691,7 @@ Clients (Slack, Web UI, Chrome Extension, VS Code)
 
 In Part 4, we saw that OpenCode is a single-server agent — it has session management, persistence, and transport, but all scoped to one machine. To make it globally accessible, you need global routing, persistent state that survives restarts, and WebSocket management across clients. This is the gap Ramp filled with Durable Objects.
 
-A Durable Object is a stateful micro-server with a globally unique ID. Any request from anywhere in the world can reach a specific DO by its ID — Cloudflare routes it automatically. Each DO has its own embedded SQLite database (up to 10 GB), and it can hold WebSocket connections. It runs single-threaded, which matches the agent pattern: one session = one sequential execution context.
+A Durable Object is a stateful micro-server with a globally unique ID (while Workers are stateless). Any request from anywhere in the world can reach a specific DO by its ID — Cloudflare routes it automatically. Each DO has its own embedded SQLite database (up to 10 GB), and it can hold WebSocket connections. It runs single-threaded, which matches the agent pattern: one session = one sequential execution context.
 
 **What makes DOs useful for agents specifically:**
 - **Global routing without a registry.** The DO ID *is* the session address. No load balancer, no session-affinity configuration, no lookup table. A client in Tokyo and a client in New York both reach the same DO by passing the same ID.
@@ -738,7 +729,7 @@ A DO is a lightweight JavaScript runtime — it cannot run bash, access a filesy
 **Technical flow:**
 - The browser connects through Cloudflare Access, which enforces identity-based authentication before any request reaches the application.
 - The Worker receives the request and routes it to the appropriate Durable Object instance.
-- The Durable Object establishes a WebSocket connection with the client and manages the container lifecycle — same pattern as Ramp (DO → compute), but here the compute is a Cloudflare Container instead of a Modal VM. Cloudflare's Sandbox product packages the DO + Container together so the developer doesn't wire the sidecar manually.
+- The Durable Object establishes a WebSocket connection with the client and manages the container lifecycle — same pattern as Ramp (DO → compute), but here the compute is a Cloudflare Container instead of a Modal VM. 
 - The container (a full Linux VM) runs the OpenClaw agent. It has an R2 bucket mounted at `/data/moltbot` via s3fs for persistent storage.
 - When the user goes idle, the container sleeps (configurable via `sleepAfter`). The Durable Object hibernates without dropping the WebSocket.
 - On the next message, the DO wakes, the container restarts, and the R2 mount provides continuity — session memory and artifacts survive the restart.
@@ -756,18 +747,19 @@ Internet → Cloudflare Access (Zero Trust)
 
 Both Ramp and Moltworker face the same problem: the agent runs in an ephemeral machine (Modal VM or Cloudflare Container) that will eventually be destroyed. How do you keep state across restarts?
 
-| | Ramp (Modal) | Moltworker (Cloudflare) |
-|---|---|---|
-| **What dies** | VM is terminated after 24-hour TTL | Container filesystem is wiped on sleep |
-| **Conversation state** | Stored in Durable Object (SQLite) — survives VM restarts | Stored in Durable Object (SQLite) — survives container restarts |
+The 2 projects made different design decisions:
+- With Modal, and its snapshot feature, the full state of the VM is saved and restored. There is no need to think ahead what information needs to be saved and restored.
+- Cloudflare Containers don't have the same feature. So the approach with Moltworker is to provide an additional persistance layer: the agent has a sort of virtual drive that rely on a Coudflare R2 bucket (a storage product similar to AWS S3). Meaning that part of the filesystem (located `/data/moltbot`) it is automatically saved. But not all of it.
+
+|                             | Ramp (Modal)                                                                                                                    | Moltworker (Cloudflare)                                                                                                      |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **What dies**               | VM is terminated after 24-hour TTL                                                                                              | Container filesystem is wiped on sleep                                                                                       |
+| **Conversation state**      | Stored in Durable Object (SQLite) — survives VM restarts                                                                        | Stored in Durable Object (SQLite) — survives container restarts                                                              |
 | **Code, deps, environment** | Modal snapshot API — full point-in-time capture of the VM filesystem. Taken before termination, restored into a fresh VM later. | R2 bucket mounted at `/data/moltbot` via s3fs — everything written there survives. No snapshot, just continuous persistence. |
-| **What survives** | Everything (full VM state frozen and restored) | Only what's explicitly written to `/data/moltbot` |
-| **What's lost** | Nothing (if snapshotted before termination) | Anything on the container filesystem outside the R2 mount |
-| **Trade-off** | Full fidelity but requires snapshot orchestration | Simpler but selective — you must design for it |
+| **What survives**           | Everything (full VM state frozen and restored)                                                                                  | Only what's explicitly written to `/data/moltbot`                                                                            |
+| **What's lost**             | Nothing (if snapshotted before termination)                                                                                     | Anything on the container filesystem outside the R2 mount                                                                    |
+| **Trade-off**               | Full fidelity but requires snapshot orchestration                                                                               | Simpler but selective — you must design for it                                                                               |
 
-Same principle — ephemeral compute, persistent state — but different mechanisms. Modal snapshots capture everything automatically. R2 mounts require the application to write important data to the right directory.
-
-**The trade-off is platform coupling.** Ramp can swap out Modal for another VM provider — the snapshot API is Modal-specific, but the DO layer is portable. Moltworker is deeply tied to Cloudflare's stack: Sandbox, Durable Objects, R2. The platform absorbs complexity, but the exit cost is real.
 ### Server layers implementation
 
 | Layer              | Status      | Implementation                                                                                             |
@@ -775,18 +767,18 @@ Same principle — ephemeral compute, persistent state — but different mechani
 | Authentication     | Implemented | Cloudflare Access (Zero Trust) — identity-based access control before any request reaches the application. |
 | Network resilience | Implemented | DO hibernation keeps WebSocket alive during idle periods. Container wakes on next message.                 |
 | Transport          | Implemented | WebSocket (via Durable Objects) + HTTP API for the entrypoint Worker.                                      |
-| Routing            | Implemented | Durable Object instance IDs — globally routable, all requests for same ID reach the same location.        |
+| Routing            | Implemented | Durable Object instance IDs — globally routable, all requests for same ID reach the same location.         |
 | Persistence        | Implemented | Multi-layer: DO SQLite for conversation, R2 bucket mounted via s3fs for artifacts and session memory.      |
 | Lifecycle          | Implemented | Agent survives client disconnection. DO hibernates. Containers sleep/wake. Cron enables autonomous runs.   |
 
 ## What to keep in mind
 
-- **Not every use case needs all the layers.** Claude in the Box ships a useful product with just HTTP streaming and KV storage. sandbox-agent adds interactive control without any database. Choose complexity based on requirements, not what the most sophisticated example does.
+- **Not every use case needs all the layers.** Claude in the Box ships a useful product with just HTTP streaming and KV storage.
 - **Transport is a spectrum — pick the simplest that fits.** Chunked HTTP for job agents (Claude in the Box), SSE for streaming with reconnection (sandbox-agent), WebSocket for bidirectional interaction and multiplayer (Ramp, Moltworker). Each step up adds capability and complexity.
 - **Background continuation is the hardest layer.** It requires persistent routing, state that outlives compute, and reconnection logic. This single requirement drives most of the architectural complexity in Ramp and Moltworker.
+  // note : please provide explanations for this claim in the chat
 - **Coordination and execution are separate concerns.** Both Ramp and Moltworker split the architecture in two: a lightweight coordination layer (Durable Objects) that routes, stores state, and holds WebSocket connections, and a heavyweight execution layer (Modal VM, Cloudflare Container) that runs the agent. The coordinator outlives the compute.
-- **Ephemeral compute, persistent state — same principle, different mechanisms.** Modal answers with VM snapshots. Cloudflare answers with R2 mounts. Others use volume mounts or external databases. The implementation depends on your platform.
-- **The platform decides how much you build.** Ramp built their own control plane. Moltworker uses Cloudflare's built-in abstractions. sandbox-agent is platform-agnostic. Each approach trades flexibility for effort.
+  // note: can't we say that's related to the stateful vs stateless decision? Let's frame this better
 
 ---
 
