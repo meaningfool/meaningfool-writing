@@ -775,70 +775,41 @@ The 2 projects made different design decisions:
 
 ---
 
-## Bibliography
-
-	### Foundational
-
-- **Anthropic — Building Effective Agents** (2024)
-  The canonical overview of agent patterns: prompt chaining, routing, parallelization, orchestrator-workers, evaluator-optimizer. Introduces the progression from workflows to autonomous agents.
-  https://www.anthropic.com/research/building-effective-agents
-
-- **CodeAct: Executable Code Actions Elicit Better LLM Agents** (ICML 2024)
-  The academic paper behind the "code beats tool calls" observation. Found up to 20% higher success rates with code-based actions versus JSON tool calls across 17 LLMs.
-  https://arxiv.org/abs/2402.01030
-
-- **Unix Was a Love Letter to Agents** — Vivek Haldar
-  Argues that the Unix philosophy — small tools, text interfaces, composition — aligns perfectly with how LLMs work. "An LLM is exactly the user Unix was designed for."
-  https://vivekhaldar.com/articles/unix-love-letter-to-agents/
-
-### Bash and code execution
-
-- **Vercel — We removed 80% of our agent's tools**
-  Direct experiment: stripped the d0 agent down to a single bash tool. Success rate went from 80% to 100%, 3.5x faster, 37% fewer tokens. "The best agents might be the ones with the fewest tools."
-  https://vercel.com/blog/we-removed-80-percent-of-our-agents-tools
-
-- **Vercel — How to build agents with filesystems and bash**
-  Practical guide to the filesystem-and-bash pattern. "Maybe the best architecture is almost no architecture at all. Just filesystems and bash."
-  https://vercel.com/blog/how-to-build-agents-with-filesystems-and-bash
-
-- **Cloudflare — Code Mode**
-  Converted MCP tools into a TypeScript API and had agents write code to call it. "LLMs have seen a lot of code. They have not seen a lot of 'tool calls'."
-  https://blog.cloudflare.com/code-mode/
-
-- **Anthropic — Code execution with MCP**
-  Measured 98.7% token reduction (150k → 2k) by having agents discover tools via filesystem exploration and compose them with code.
-  https://www.anthropic.com/engineering/code-execution-with-mcp
-
-### Filesystem and memory
-
-- **Manus — Context Engineering for AI Agents**
-  Describes their approach to filesystem as extended memory: "unlimited in size, persistent by nature, and directly operable by the agent itself." Details todo.md patterns for maintaining state across ~50-tool-call sequences.
-  https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus
-
-- **From "Everything is a File" to "Files Are All You Need"** (arXiv 2025)
-  Academic paper arguing that Unix's 1970s design principles apply directly to autonomous AI systems. Cites Jerry Liu: "Agents need only ~5-10 tools: CLI over filesystem, code interpreter, web fetch."
-  https://arxiv.org/html/2601.11672
-
-### Architecture and implementation
-
-- **How Claude Code is built** — Pragmatic Engineer
-  Deep dive into Claude Code's architecture. "Claude Code embraces radical simplicity. The team deliberately minimizes business logic, allowing the underlying model to perform most work."
-  https://newsletter.pragmaticengineer.com/p/how-claude-code-is-built
-
-- **Anthropic — Writing effective tools for agents**
-  Guidance on tool design: "More tools don't always lead to better outcomes. Rather than wrapping every API endpoint into a tool, developers should build a few thoughtful tools."
-  https://www.anthropic.com/engineering/writing-tools-for-agents
+## Going further
 
 - **LangGraph — Thinking in LangGraph**
   The mental model behind app-driven orchestration: explicit graphs, state machines, and developer-defined control flow. Includes the email-triage workflow example.
   https://docs.langchain.com/oss/python/langgraph/thinking-in-langgraph
 
-### Runtime and infrastructure
+- **Unix Was a Love Letter to Agents** — Vivek Haldar
+  Argues that the Unix philosophy — small tools, text interfaces, composition — aligns perfectly with how LLMs work. "An LLM is exactly the user Unix was designed for."
+  https://vivekhaldar.com/articles/unix-love-letter-to-agents/
+
+- **Vercel — How to build agents with filesystems and bash**
+  Practical guide to the filesystem-and-bash pattern. "Maybe the best architecture is almost no architecture at all. Just filesystems and bash."
+  https://vercel.com/blog/how-to-build-agents-with-filesystems-and-bash
+
+- **From "Everything is a File" to "Files Are All You Need"** (arXiv 2025)
+  Academic paper arguing that Unix's 1970s design principles apply directly to autonomous AI systems. Cites Jerry Liu: "Agents need only ~5-10 tools: CLI over filesystem, code interpreter, web fetch."
+  https://arxiv.org/html/2601.11672
+
+- **How Claude Code is built** — Pragmatic Engineer
+  Deep dive into Claude Code's architecture. "Claude Code embraces radical simplicity. The team deliberately minimizes business logic, allowing the underlying model to perform most work."
+  https://newsletter.pragmaticengineer.com/p/how-claude-code-is-built
+
+- **What I learned building an opinionated and minimal coding agent** — Mario Zechner
+  The author of Pi SDK on building a coding agent with under 1,000 tokens of instructions and no elaborate tool set. "If I don't need it, it won't be built."
+  https://mariozechner.at/posts/2025-11-30-pi-coding-agent/
+
+- **Agent Design Is Still Hard** — Armin Ronacher
+  Building production agents requires custom abstractions over SDK primitives. "The differences between models are significant enough that you will need to build your own agent abstraction." Covers cache management, failure isolation, and shared filesystem state.
+  https://lucumr.pocoo.org/2025/11/21/agents-are-hard/
+
+- **Minions: Stripe's one-shot, end-to-end coding agents** — Alistair Gray
+  Stripe's homegrown coding agents that operate fully unattended — from task to merged PR — producing over 1,000 merged PRs per week. Orchestrates across internal MCP servers, CI systems, and developer infrastructure.
+  https://stripe.dev/blog/minions-stripes-one-shot-end-to-end-coding-agents
 
 - **Turso — AgentFS: The Missing Abstraction**
   Argues for treating agent state like a filesystem but implementing it as a database. "Traditional approaches fragment state across multiple tools—databases, logging systems, file storage, and version control."
   https://turso.tech/blog/agentfs
 
-- **The New Stack — Serverless Cloud Architecture Is Failing Modern AI Agents**
-  "AI agents do not operate in milliseconds. They work across sequences of steps, referring to past context, creating intermediate files, running validations." Argues the core unit of compute is now a session, not an invocation.
-  https://thenewstack.io/serverless-cloud-architecture-is-failing-modern-ai-agents/
