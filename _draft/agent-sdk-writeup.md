@@ -10,21 +10,22 @@
 - **Agent SDKs**: Claude Agent SDK, Pi SDK
 - **Agent servers**: Opencode
 
-**What you can expect**
+More specifically, frameworks are positioned based on 2 questions:
+- **Where does orchestration live?**
+  Orchestration *outside* the agent loop (app-driven) ↔ orchestration *inside* the agent loop (agent-driven).
+- **Where is the agent boundary?**
+  Agent *IN* the app (agent-as-a-feature) ↔ agent *IS* the app (agent-as-a-service).
+
+![Framework positioning map](../images/framework-map.png)
+
+
+**What you can expect** in the following parts:
 - Part 1: What "agent" means — the three ingredients every agent is made of.
 - Part 2: How frameworks differ in who decides what happens next — your code or the model.
 - Part 3: Why the most powerful agent tool is a Unix shell, and what that implies.
 - Part 4: What it takes to turn an agent library into an agent server.
 - Part 5: Real projects that made different architectural choices, and what you can learn from them.
 
-- **Horizontal axis — where does orchestration live?**
-  Orchestration *outside* the agent loop (app-driven) ↔ orchestration *inside* the agent loop (agent-driven).
-- **Vertical axis — where is the agent boundary?**
-  Agent *IN* the app (agent-as-a-feature) ↔ agent *IS* the app (agent-as-a-service).
-
-![Framework positioning map](../images/framework-map.png)
-
-But before placing anything on that map, we need to agree on what an "agent" actually is.
 
 ---
 
