@@ -1,4 +1,5 @@
-# Agent Frameworks for the Rest of Us
+# Agent SDKs for the Rest of Us
+## A Mental Map
 
 **How do you build an AI agent?** There are all these frameworks (LangChain/LangGraph, Vercel AI SDK, PydanticAI, Claude Agent SDK, Mastra, OpenCode) to help you build agents. But I had a hard time pinning down the exact differences between them. It was all very confusing: a clear sign that there were gaps in my knowledge that went deeper than the frameworks' APIs.
 
