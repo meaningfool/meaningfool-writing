@@ -443,8 +443,6 @@ SQLite is embedded. Your application links the library, calls functions directly
 
 PostgreSQL is hosted. It runs as a separate server process. Your application connects over a socket, sends SQL as messages, receives results. Service boundary. PostgreSQL keeps running after your app disconnects.
 
-<!-- TODO: illustration — two diagrams side by side. Left: "Embedded" showing your machine with the app inside it. Right: "Hosted" showing your machine connecting over the network to a server with the app inside it. The network connection is the service boundary. -->
-
 ### What is the difference between an Agent SDK and a regular coding agent?
 
 What's the difference between Claude Agent SDK and Claude Code, between Codex SDK and Codex, between Pi coding agent and Pi SDK?
