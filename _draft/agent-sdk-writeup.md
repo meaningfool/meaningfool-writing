@@ -2,7 +2,7 @@
 
 **How do you build an AI agent?** There are all these frameworks (LangChain/LangGraph, Vercel AI SDK, PydanticAI, Claude Agent SDK, Mastra, OpenCode) to help you build agents. But I had a hard time pinning down the exact differences between them. It was all very confusing: a clear sign that there were gaps in my knowledge that went deeper than the frameworks' APIs.
 
-**Who is the "Rest of Us"?** I'm probably not the only one confused. I am a PM, so somewhat technical but not overly so. This report is my attempt to share what I've learnt about the topic. There is a chance that it contains inaccuracies or errors that I was not technical enough to spot. All forms of constructive feedback are welcome :)
+**Who is the "Rest of Us"?** I'm probably not the only one confused. I am a PM, somewhat technical but not overly so. This report is my attempt to share what I've learnt about the topic. It certainly contains inaccuracies or errors. Feedback will improve it :)
 
 **Mapping the frameworks**: I need maps to orient myself. I've come to think of frameworks as belonging to one of the following 3 categories.
 - **Orchestration frameworks**: LangGraph, PydanticAI, Mastra, Vercel AI SDK
@@ -716,7 +716,7 @@ A DO is a lightweight JavaScript runtime — it cannot run bash, access a filesy
 **Link**: [github.com/cloudflare/moltworker](https://github.com/cloudflare/moltworker) — blog: [blog.cloudflare.com/moltworker-self-hosted-ai-agent](https://blog.cloudflare.com/moltworker-self-hosted-ai-agent/)
 
 **Description**:
-- **This is a self-hosted personal AI agent running on Cloudflare.** Persistent conversations, background execution, autonomous scheduling.
+- **[OpenClaw](https://github.com/openclaw/openclaw) (previously Moltbot, ex-Clawbot, ex-Clawdis) is all the rage since January**: a personal assistant that you can work with from your messaging app. There are different options for hosting, the first being you own computer or a VPS. Cloudflare Moltworker project provides an option to deploy it on Cloudflare ecosystem.
 - The stack has three layers: **Pi SDK** provides the agent engine (LLM calls, tool execution, agent loop). **OpenClaw** builds a complete personal assistant on top of Pi — multi-channel inbox (WhatsApp, Telegram, Slack, Discord), its own session management, a skills platform, and companion apps. **Moltworker** is the deployment layer — it packages OpenClaw into a Cloudflare container, handles authentication (Cloudflare Access), persists state to R2, and proxies requests from the internet to the agent.
 
 **User journey:** the user accesses their agent via a browser, protected by Cloudflare Access (Zero Trust). They chat with the agent, which can browse the web, execute code, and remember context across sessions. They can close the browser and come back — conversations persist. The agent can also run autonomously on a cron schedule with no client connected at all.
@@ -793,6 +793,10 @@ The 2 projects made different design decisions:
   Academic paper arguing that Unix's 1970s design principles apply directly to autonomous AI systems. Cites Jerry Liu: "Agents need only ~5-10 tools: CLI over filesystem, code interpreter, web fetch."
   https://arxiv.org/html/2601.11672
 
+- **Turso — AgentFS: The Missing Abstraction**
+  Argues for treating agent state like a filesystem but implementing it as a database. "Traditional approaches fragment state across multiple tools—databases, logging systems, file storage, and version control."
+  https://turso.tech/blog/agentfs
+
 - **How Claude Code is built** — Pragmatic Engineer
   Deep dive into Claude Code's architecture. "Claude Code embraces radical simplicity. The team deliberately minimizes business logic, allowing the underlying model to perform most work."
   https://newsletter.pragmaticengineer.com/p/how-claude-code-is-built
@@ -809,7 +813,6 @@ The 2 projects made different design decisions:
   Stripe's homegrown coding agents that operate fully unattended — from task to merged PR — producing over 1,000 merged PRs per week. Orchestrates across internal MCP servers, CI systems, and developer infrastructure.
   https://stripe.dev/blog/minions-stripes-one-shot-end-to-end-coding-agents
 
-- **Turso — AgentFS: The Missing Abstraction**
-  Argues for treating agent state like a filesystem but implementing it as a database. "Traditional approaches fragment state across multiple tools—databases, logging systems, file storage, and version control."
-  https://turso.tech/blog/agentfs
-
+- **The two patterns by which agents connect sandboxes** — Harrison Chase
+  Agent IN sandbox (runs inside, you connect over the network) vs sandbox as tool (agent runs locally, calls sandbox via API). Each has different trade-offs for security, iteration speed, and coupling.
+  https://x.com/hwchase17/status/2021261552222158955
