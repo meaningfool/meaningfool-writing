@@ -22,7 +22,7 @@
 - **Vertical axis — where is the agent boundary?**
   Agent *IN* the app (agent-as-a-feature) ↔ agent *IS* the app (agent-as-a-service).
 
-<!-- TODO: insert 2×2 diagram here -->
+![Framework positioning map](../images/framework-map.png)
 
 But before placing anything on that map, we need to agree on what an "agent" actually is.
 
@@ -183,7 +183,7 @@ Agent:     "Trattoria Roma is the best rated (4.7★) and has two
 - How "Agent SDKs" rely on goals and a harness to steer the agent but let it figure it out.
 ## From prompting to agents
 
-<!-- TODO: illustration — progression from single prompt → prompt chain → workflow with tools → agent loop. A horizontal timeline or staircase showing the progression. Reference: the "historical ladder" from Anthropic's "Building Effective Agents" blog post. -->
+![Progression from prompting to agents](../images/progression-timeline.png)
 
 ### 1️⃣ The Massive Prompt
 
@@ -226,7 +226,7 @@ This section focuses on the question: who owns that logic? who owns the control 
 - The developer defines the graph: the nodes (steps), the edges (transitions), the routing logic.
 - The LLM is a component called within each step but the app enforces the flow defined by the developer.
 
-<!-- TODO: illustration — app-driven restaurant workflow graph: START → Parse Request → Search Restaurants → Get Reviews → Check Availability → Format Response → END. Show the nodes as boxes with arrows indicating the fixed sequence defined by the developer. -->
+![App-driven workflow graph](../images/workflow-graph.png)
 
 
 Anthropic's ["Building Effective Agents"](https://www.anthropic.com/research/building-effective-agents) blog post catalogs several variants of app-driven control flow:
@@ -510,7 +510,7 @@ Authentication and network resilience need to be thought through for any client-
 
 **Lifecycle** — what happens when the user closes the tab while the agent is working. When the agent runs inside the request handler, when the user disconnects, the connection closes and the agent stops. For longer tasks, you need the agent to survive disconnection. To do so, first you need to separate the agent process from the request handler. The agent runs in its own container or background process, not inside the HTTP handler. 
 
-<!-- TODO: illustration — concentric circles (onion diagram). Inner circle: "Agent loop (Claude Agent SDK, py-sdk)". Next ring: "Session management". Next ring: "Transport (HTTP/WS)". Next ring: "Routing". Outer ring: "Persistence, lifecycle". Label the whole thing: "What you build with SDK-first". Then show OpenCode as a pre-assembled version with all layers included. -->
+![SDK to Agent Server layers](../images/onion-layers.png)
 
 ## OpenCode: the only Agent Server
 
