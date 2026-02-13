@@ -21,7 +21,7 @@ More specifically, frameworks are positioned based on 2 questions:
 - **Where is the agent boundary?**
   Agent *IN* the app (agent-as-a-feature) ↔ agent *IS* the app (agent-as-a-service).
 
-![Framework positioning map](../images/framework-map.png)
+![Framework positioning map](../images/framework-map.webp)
 
 
 **What you can expect** in the following parts:
@@ -187,7 +187,7 @@ Agent:     "Trattoria Roma is the best rated (4.7★) and has two
 
 ## From prompting to agents
 
-![Progression from prompting to agents](../images/progression-timeline.png)
+![Progression from prompting to agents](../images/progression-timeline.webp)
 
 ### 1️⃣ The Massive Prompt
 
@@ -230,7 +230,7 @@ This section focuses on the question: who owns that logic? who owns the control 
 - The developer defines the graph: the nodes (steps), the edges (transitions), the routing logic.
 - The LLM is a component called within each step but the app enforces the flow defined by the developer.
 
-![App-driven workflow graph](../images/workflow-graph.png)
+![App-driven workflow graph](../images/workflow-graph.webp)
 
 
 Anthropic's ["Building Effective Agents"](https://www.anthropic.com/research/building-effective-agents) blog post catalogs several variants of app-driven control flow:
@@ -514,7 +514,7 @@ Authentication and network resilience need to be thought through for any client-
 
 **Lifecycle**: what happens when the user closes the tab while the agent is working. When the agent runs inside the request handler, when the user disconnects, the connection closes and the agent stops. For longer tasks, you need the agent to survive disconnection. To do so, first you need to separate the agent process from the request handler. The agent runs in its own container or background process, not inside the HTTP handler. 
 
-![SDK to Agent Server layers](../images/onion-layers.png)
+![SDK to Agent Server layers](../images/onion-layers.webp)
 
 ## OpenCode: the only Agent Server
 
