@@ -1,3 +1,8 @@
+---
+title: "Agent Frameworks for the Rest of Us"
+date: 2026-02-13
+---
+
 # Agent Frameworks for the Rest of Us
 ## A Mental Map
 
