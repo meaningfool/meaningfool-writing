@@ -1,9 +1,9 @@
-# Agent SDKs for the Rest of Us
+# Agent Frameworks for the Rest of Us
 ## A Mental Map
 
-**How do you build an AI agent?** There are all these frameworks (LangChain/LangGraph, Vercel AI SDK, PydanticAI, Claude Agent SDK, Mastra, OpenCode) to help you build agents. But I had a hard time pinning down the exact differences between them. It was all very confusing: a clear sign that there were gaps in my knowledge that went deeper than the frameworks' APIs.
+**How do you build an AI agent?** There are all these frameworks (LangChain/LangGraph, Vercel AI SDK, PydanticAI, Claude Agent SDK, Mastra, OpenCode) to help you build agents. What actually makes them different from one another? The present report shares my findings diving into Agent Frameworks.
 
-**Who is the "Rest of Us"?** I'm probably not the only one confused. I am a PM, somewhat technical but not overly so. This report is my attempt to share what I've learnt about the topic. It certainly contains inaccuracies or errors. Feedback will improve it :)
+**Who is the "Rest of Us"?** People that are not technical enough to just "get it". I am a PM, somewhat technical but not overly so. And as such this report certainly contains inaccuracies or errors. Feedback will improve it :)
 
 **Mapping the frameworks**: I need maps to orient myself. I've come to think of frameworks as belonging to one of the following 3 categories.
 - **Orchestration frameworks**: LangGraph, PydanticAI, Mastra, Vercel AI SDK
@@ -57,9 +57,9 @@ A tool gives an LLM capabilities it does not have natively. Tools enable:
 - **Things LLM do badly:** arithmetic, find exact-matches in a document...
 
 **The LLM cannot execute tools on its own though:**
-- It can return text that matches a demand for tool-calling.
-- The tool must be run by the program calling the LLM.
-- And the result must be passed by the program back to the LLM.
+- The LLM returns a structured object specifying which tool to call.
+- The host program runs the tool.
+- The host program passes the result back to the LLM.
 
 ## How LLMs learned to call tools
 
@@ -79,7 +79,7 @@ For example, if the LLM wants to check the weather in Paris, instead of respondi
 
 But how did the LLM learn to generate such JSON objects as the *most likely chain of characters* in the middle of a conversation in plain English?
 
-**Tool calling is not something that existed in the original training data.** Nobody writes "output a JSON object to invoke a calculator function" on the internet.
+**The original training data contains no tool-calling examples.** Nobody writes "output a JSON object to invoke a calculator function" on the internet.
 
 **LLMs are specifically trained to learn when to use tools** through fine-tuning on tool-use transcripts:
 - The models are trained on many examples of conversations where the assistant produces structured function invocations, receives results, and continues. OpenAI shipped this first commercially (June 2023, GPT-3.5/GPT-4), and other providers followed.
@@ -178,10 +178,8 @@ Agent:     "Trattoria Roma is the best rated (4.7★) and has two
 
 # Part 2 - Where orchestration lives
 
-**A first segmentation axis is looking at where orchestration lives: in the app or in the agent**. In this part, we'll look into 
-- What orchestration means
-- How "orchestration framework" let you define an app-driven control through code 
-- How "Agent SDKs" rely on goals and a harness to steer the agent but let it figure it out.
+**Frameworks differ on who owns the orchestration**: the app (orchestration frameworks) or the agent (agent sdks)?
+
 ## From prompting to agents
 
 ![Progression from prompting to agents](../images/progression-timeline.png)
@@ -310,7 +308,7 @@ The agent decides:
 - **Tools**: what pre-packaged tools are available to search, fetch, edit, run commands, apply patches.
 - **Permissions**: which tools are allowed, under what conditions, with what scoping.
 - **Skills**: pre-packaged behaviours and assets the agent can invoke.
-- **Hooks / callbacks** — places the host can intercept or augment behavior: logging, approvals, guardrails.
+- **Hooks / callbacks**: places the host can intercept or augment behavior (logging, approvals, guardrails).
 
 This report examines three agent SDKs that implement agent-driven control flow:
 - **Claude Agent SDK** exposes the Claude Code engine as a library, with all the harness elements above built in.
@@ -332,7 +330,7 @@ Three points from this section:
 
 # Part 3 - Two tools to rule them all
 
-**The tools provided to an agent reveal the designer's "inductive bias": how they think things should be done**. This structure can be both supporting when the task is beyond the model's ability to figure it out, and limiting in terms of available strategies to reach a goal. 
+**The tools provided to an agent encode assumptions about how things should be done.** A search_web → get_reviews → check_availability pipeline implies a specific strategy. It limits the ability of the model to figure out how to reach the goal. 
 
 **Bash and the file system in contrast are universal tools** that Agent SDKs have made a choice to consider a given. In this part, I'll look into why and how those tools change the game.
 ## The limits of predefined tools
@@ -378,7 +376,7 @@ done
 - And the ability to combine them in ways you did not anticipate.
 
 **Vercel achieved 100% success rate. 3.5x faster. 37% fewer tokens** :
-- Their text-to-SQL agent d0 had 17 specialized tools — query builders, schema inspectors, result formatters — and achieved an 80% success rate.
+- Their text-to-SQL agent d0 had 17 specialized tools (query builders, schema inspectors, result formatters) and achieved an 80% success rate.
 - Then they ["deleted most of it and stripped the agent down to a single tool: execute arbitrary bash commands."](https://vercel.com/blog/we-removed-80-percent-of-our-agents-tools)
 - The result: one general-purpose tool outperformed seventeen specialized ones.
 
@@ -415,14 +413,14 @@ To persist an information, a user-facing artifact, a plan or intermediate result
 - **The filesystem is universal persistence.** Instead of defining schemas for what the agent can store, you give it a directory. It can write any file type, organize however makes sense, and the files persist across sessions for free.
 - **All major agent SDKs assume both.** The Claude Agent SDK, OpenCode, and Codex all ship bash and filesystem tools as built-in. Pi SDK is a notable exception — it can work without filesystem access.
 - **This has architectural consequences.** Bash and filesystem access require a runtime that provides them. 
-- **An alternative is emerging: reimplement the interpreter.** Vercel's [`just-bash`](https://github.com/vercel-labs/just-bash) is a bash interpreter written in TypeScript — 75+ Unix commands reimplemented with a virtual in-memory filesystem. No real shell, no real filesystem, no container needed. Pydantic's [`monty`](https://github.com/pydantic/monty) does the same for Python: a subset interpreter written in Rust, where `open()`, `subprocess`, and `exec()` simply do not exist. 
+- **An alternative is emerging: reimplement the interpreter.** Vercel's [`just-bash`](https://github.com/vercel-labs/just-bash) is a bash interpreter written in TypeScript: 75+ Unix commands reimplemented with a virtual in-memory filesystem. No real shell, no real filesystem, no container needed. Pydantic's [`monty`](https://github.com/pydantic/monty) does the same for Python: a subset interpreter written in Rust, where `open()`, `subprocess`, and `exec()` simply do not exist. 
 
 
 # Part 4 - Agent SDK to Agent Server: crossing the service boundary
 
-**Agents may be many thing**: ephemeral or long-lived, stateful or stateless, behind-the-scene automated processes or user-facing. Such behaviours imply various technical requirements.
+**An agent can be many thing**: ephemeral or long-lived, stateful or stateless, automating processes behind-the-scene or user-facing. 
 
-Most Agent frameworks are libraries. But OpenCode is a different beast: it has a server-client architecture. Beyond the technicality I had to understand what's the functional impact of this difference. 
+How do these behavioural features map with technical capabilities provided by the agent frameworks? And the other way around, OpenCode has a server-client architecture while other frameworks are libraries: how does that matter when you want to build an agent
 
 In this part, I'm looking at how agent behaviours and agent implementation details are related. In particular what technical layers need to be implemented to go from an Agent SDK to an Agent Server (OpenCode).
 
@@ -503,13 +501,13 @@ If you want to build a ChatGPT clone, an Agent SDK is a start. But it's not enou
 
 Authentication and network resilience need to be thought through for any client-server application. Agents require additional layers:
 
-**Transport** — how the user's browser (or app) talks to the agent server. You build an HTTP server that accepts requests and returns agent output. The question is how much real-time interaction you need. There are multiple options of growing complexity from standard HTTP request/response (the user submits a task and waits for the complete result: no progress updates while the agent works) to Websocket. See focus on the Transport layer in Part 5 for more details.
+**Transport**: how the user's browser (or app) talks to the agent server. You build an HTTP server that accepts requests and returns agent output. The question is how much real-time interaction you need. There are multiple options of growing complexity from standard HTTP request/response (the user submits a task and waits for the complete result: no progress updates while the agent works) to Websocket. See focus on the Transport layer in Part 5 for more details.
 
-**Routing** — how each message reaches the right conversation. You build this by assigning a session ID to each conversation and maintaining a registry — a lookup table that maps session IDs to agent processes. When a message comes in, the server looks up the session ID and forwards the message to the right place.
+**Routing**: how each message reaches the right conversation. You build this by assigning a session ID to each conversation and maintaining a registry — a lookup table that maps session IDs to agent processes. When a message comes in, the server looks up the session ID and forwards the message to the right place.
 
-**Persistence** — how conversations can be accessed and resumed later. You build this by "persisting" the conversation state (messages, context, artifacts). Unless the runtime is run without interruption that means saving the state and reloading it when the user reconnects. Part 5 shows how different projects solve this differently.
+**Persistence**: how conversations can be accessed and resumed later. You build this by "persisting" the conversation state (messages, context, artifacts). Unless the runtime is run without interruption that means saving the state and reloading it when the user reconnects. Part 5 shows how different projects solve this differently.
 
-**Lifecycle** — what happens when the user closes the tab while the agent is working. When the agent runs inside the request handler, when the user disconnects, the connection closes and the agent stops. For longer tasks, you need the agent to survive disconnection. To do so, first you need to separate the agent process from the request handler. The agent runs in its own container or background process, not inside the HTTP handler. 
+**Lifecycle**: what happens when the user closes the tab while the agent is working. When the agent runs inside the request handler, when the user disconnects, the connection closes and the agent stops. For longer tasks, you need the agent to survive disconnection. To do so, first you need to separate the agent process from the request handler. The agent runs in its own container or background process, not inside the HTTP handler. 
 
 ![SDK to Agent Server layers](../images/onion-layers.png)
 
@@ -554,7 +552,7 @@ Part 5 walks through real projects to illustrate how agents are assembled from d
 - **Use case**: a job that is best performed by an agent, i.e. extract structured data from a document.
 - A ~100-line project that wraps the Claude Agent SDK.
 
-**User journey:** the client sends a POST request with a prompt and stays connected. The agent's raw output streams back in real time — progress messages, tool calls, intermediate results. When the agent finishes, the Worker collects the final output files (the artifacts) and stores them in KV and returns it to the client.
+**User journey:** the client sends a POST request with a prompt and stays connected. The agent's raw output streams back in real time: progress messages, tool calls, intermediate results. When the agent finishes, the Worker collects the final output files (the artifacts) and stores them in KV and returns it to the client.
 
 **Technical flow:**
 - The Worker receives the POST and spins up a Cloudflare Sandbox.
@@ -604,7 +602,7 @@ Neither can do the whole job alone. The Worker provides the service boundary (HT
 **Link**: [github.com/rivet-dev/sandbox-agent](https://github.com/rivet-dev/sandbox-agent)
 
 **Description**:
-- **This is a transport adapter.** It solves one problem — giving every coding agent a unified HTTP+SSE transport — and leaves everything else to the consumer.
+- **This is a transport adapter.** It solves one problem (giving every coding agent a unified HTTP+SSE transport) and leaves everything else to the consumer.
 - **Use case**: when a developer wants to deploy a variety of coding agents in sandboxes, this provides a built-in transport solution. The developer doesn't need to understand each agent's native protocol, and doesn't need to change anything when switching sandbox providers.
 
 **Technical flow:**
