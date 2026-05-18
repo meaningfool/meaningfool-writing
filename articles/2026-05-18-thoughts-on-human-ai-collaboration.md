@@ -13,7 +13,7 @@ The magical feel to interacting with this app comes from a combination of:
 - Live interactions: you get live feedback on your input
 - Multimodal input/output
 
-<video src="../images/voice-todos-en-web.mp4" controls width="100%"></video>
+<video src="/images/voice-todos-en-web.mp4" controls width="100%"></video>
 
 ## Live interaction
 
