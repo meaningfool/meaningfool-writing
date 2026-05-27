@@ -1,3 +1,8 @@
+---
+title: "Comparing Models for Time-Sensitive Structured Extraction"
+date: 2026-05-27
+---
+
 # Comparing Models for Time-Sensitive Structured Extraction
 
 A key aspect of my `voice-todos` app was to make it snappy: visual feedback is useful only if it's near instant. 
@@ -6,7 +11,7 @@ You need to optimize latency at all levels.
 
 ## Optimizing LLM extraction time
 
-I built my own, very simple, eval suite, made of 26 cases, to test if LLMs were able to capture some behaviours expected from my `voice-todos-app`:
+I built my own, very simple, [eval suite](https://github.com/meaningfool/voice-todos/blob/main/evals/locks/todo_extraction_bench_v1.json), made of 26 cases, to test if LLMs were able to capture some behaviours expected from my `voice-todos-app`:
 - Multi-todo extraction.
 - Over- and under-splitting.
 - Merge instructions following.
@@ -45,7 +50,7 @@ Latency is measured over the full case span, including failed runs.
 
 ## How Structure Gets Enforced
 
-![Structured extraction strategies and layers](assets/structured-extraction-collage.png)
+![Structured extraction strategies and layers](../images/structured-extraction-collage.png)
 
 There are 2 possible strategies to enforce the structure of an LLM response: 
 
@@ -60,4 +65,3 @@ There are 2 possible strategies to enforce the structure of an LLM response:
 2. The provider shows the model a schema 
 3. The library turns the schema into rules that run during token generation
 4. The model generates token as it normally would but the library `masks` invalid tokens so that only tokens that are schema-compliant may be chosen as an output.
-
