@@ -1,7 +1,3 @@
-# Daily command working files
-.daily/
-.daily_session
-
 # Temporary files
 *.tmp
 .DS_Store

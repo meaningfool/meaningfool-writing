@@ -1,0 +1,31 @@
+name: Deploy site
+
+# Published content changed: start the deploy workflow of meaningfool.github.io,
+# which builds the latest commit of this repository's main branch.
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'articles/**'
+      - 'daily-logs/**'
+      - 'images/**'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  trigger-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Start the site deploy
+        env:
+          # Fine-grained token limited to meaningfool/meaningfool.github.io,
+          # with "Actions: Read and write" permission.
+          GH_TOKEN: ${{ secrets.SITE_DEPLOY_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::Missing SITE_DEPLOY_TOKEN secret: a fine-grained token with Actions read and write access to meaningfool/meaningfool.github.io."
+            exit 1
+          fi
+          gh workflow run deploy.yml --repo meaningfool/meaningfool.github.io --ref main
+          echo "Deploy started: https://github.com/meaningfool/meaningfool.github.io/actions/workflows/deploy.yml"

@@ -17,7 +17,7 @@ date: 2026-02-01
 I finalized two Claude Code skills that encode my own workflows:
 
 - **Spec-driven development skill.** Encodes my flavor of spec-driven development: feature creation, folder numbering, spec writing (slices, test-first), and implementation principles. Spec and plan files serve as a record of research findings and decisions.
-- **[Publishing skill](https://github.com/meaningfool/meaningfool-writing/tree/main/.claude/skills/publishing).** Handles the publishing pipeline for my website (meaningfool.github.io): from publishing an article (checking for frontmatter, fixing links and images if needed) to rebuilding the website (an Astro website with a Git submodule for the content).
+- **[Publishing skill](https://github.com/meaningfool/meaningfool-writing/tree/c554cbbdb56bb30c9c39d36b5883161dcccf16cd/.claude/skills/publishing).** Handles the publishing pipeline for my website (meaningfool.github.io): from publishing an article (checking for frontmatter, fixing links and images if needed) to rebuilding the website (an Astro website with a Git submodule for the content).
 
 **Next steps:** Skill development is likely to become important, and it's still early stage. Nonetheless there are several opportunities to learn from the community about emerging patterns and best practices:
 - [Vercel agent-skills](https://x.com/fernandorojo/status/2016684080738554054) 
