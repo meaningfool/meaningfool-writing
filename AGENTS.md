@@ -17,13 +17,14 @@ Content for https://meaningfool.net: articles, activity logs and images. The sit
   ---
   title: "Article title"
   date: 2026-01-05
+  updated: 2026-03-01
   description: "Optional one-sentence summary"
   tags: ["optional"]
   ---
   ```
 
-  `title` is a quoted string. `date` is `YYYY-MM-DD`, unquoted. Other fields are allowed and ignored by the site.
-- Start the body with `# Title`, matching `title`. Use `##` and deeper for sections: the site currently hides every `#` heading in the body (see meaningfool/meaningfool.github.io#8).
+  `title` is a quoted string. `date` and `updated` are `YYYY-MM-DD`, unquoted. `date` is the publish date and never changes; when a published post changes meaningfully, set `updated` to that day (search engines read it). `updated`, `description` and `tags` are optional, and other fields are ignored by the site.
+- Start the body with `# Title`, matching `title`; the site drops that heading and shows `title` instead. Use `##` and deeper for sections: the site currently hides any other `#` heading in the body (see meaningfool/meaningfool.github.io#8).
 - Images: `![What the image shows](../images/file.png)`. Videos: `<video src="/images/file.mp4" controls width="100%"></video>`.
 
 ## Publishing a draft
