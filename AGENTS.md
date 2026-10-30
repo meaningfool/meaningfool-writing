@@ -25,7 +25,8 @@ Content for https://meaningfool.net: articles, activity logs and images. The sit
 
   `title` is a quoted string. `date` and `updated` are `YYYY-MM-DD`, unquoted. `date` is the publish date and never changes; when a published post changes meaningfully, set `updated` to that day (search engines read it). `updated`, `description` and `tags` are optional, and other fields are ignored by the site.
 - Start the body with `# Title`, matching `title`; the site drops that heading and shows `title` instead. Use `##` and deeper for sections: the site currently hides any other `#` heading in the body (see meaningfool/meaningfool.github.io#8).
-- Images: `![What the image shows](../images/file.png)`. Videos: `<video src="/images/file.mp4" controls width="100%"></video>`.
+- Images: `![What the image shows](../images/file.png)`.
+- Videos: put the file in `images/` and embed it with `<video src="/images/file.mp4" controls width="100%"></video>`. The site copies only `.mp4` files, so convert `.mov` and other formats to MP4 with H.264 video, which every browser plays, including Safari and iPhones. Keep each video under 25 MiB, the largest file Cloudflare serves: a bigger one makes the deploy fail, so compress it first.
 
 ## Publishing a draft
 
@@ -34,9 +35,9 @@ Publishing is public, so confirm with the owner first unless they explicitly ask
 1. The draft is in `_draft/`. Its title is its first `# ` heading.
 2. Move it to `articles/YYYY-MM-DD-slug.md` with today's date (`git mv` if it is tracked). The slug is the draft's file name without any leading number prefix.
 3. Set the frontmatter: `title` from the heading, `date` to today. Keep any other fields already there.
-4. Point images at `../images/…`, and report any image file that doesn't exist.
+4. Point images at `../images/…`, and report any image or video file that doesn't exist. Check that videos follow the rules above.
 5. Commit as `Publish: <title>` and push to `main`. The push deploys the site; follow the run in meaningfool.github.io's Actions, for example with `gh run watch -R meaningfool/meaningfool.github.io`.
 
-If a deploy fails, the live site keeps its previous version. The build log names the file at fault, usually because of bad frontmatter.
+If a deploy fails, the live site keeps its previous version. The build log names the file at fault, usually because of bad frontmatter or a video over 25 MiB.
 
 The repository is public: keep secrets and personal data out of it, including tracking parameters in links.
