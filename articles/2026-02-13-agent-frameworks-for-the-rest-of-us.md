@@ -1,6 +1,7 @@
 ---
 title: "Agent Frameworks for the Rest of Us"
 date: 2026-02-13
+topics: ["ai-agents"]
 ---
 
 # Agent Frameworks for the Rest of Us

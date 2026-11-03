@@ -1,6 +1,7 @@
 ---
 title: "Prolifics and frugals"
 date: 2026-01-26
+topics: ["product"]
 ---
 
 # Prolifics and frugals

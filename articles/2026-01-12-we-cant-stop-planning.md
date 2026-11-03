@@ -2,6 +2,7 @@
 title: "We Can't Stop Planning (Even When We Should)"
 date: 2026-01-12
 tags: ["planning", "development"]
+topics: ["product"]
 ---
 
 # We Can't Stop Planning (Even When We Should)

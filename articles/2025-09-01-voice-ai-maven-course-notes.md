@@ -2,6 +2,7 @@
 title: "Voice AI Maven Course Notes"
 date: 2025-09-01
 tags: ["ai", "voice", "agents"]
+topics: ["ai-agents"]
 ---
 
 # Voice AI Maven Course Notes

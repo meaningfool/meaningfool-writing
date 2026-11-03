@@ -2,6 +2,7 @@
 title: "The semi-async valley of death"
 date: 2025-10-22
 tags: []
+topics: ["product", "ai-agents"]
 ---
 
 # The semi-async valley of death

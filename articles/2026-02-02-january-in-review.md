@@ -1,6 +1,7 @@
 ---
 title: "January in review"
 date: 2026-02-01
+topics: ["ai-agents"]
 ---
 
 # January in review
