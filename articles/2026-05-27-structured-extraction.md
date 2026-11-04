@@ -34,7 +34,7 @@ Latency is measured over the full case span, including failed runs.
 | Gemini 3 Flash / minimal thinking | 26/26 | 1.430s | 3.420s |
 | Gemini 3.1 Flash-Lite / default | 25/26 | 1.097s | 1.841s |
 | Gemini 3.1 Flash-Lite / minimal thinking | 25/26 | 1.314s | 2.511s |
-| Mistral Small 4 / default | 26/26 | 0.674s | 1.053s |
+| **Mistral Small 4 / default** | **26/26** | **0.674s** | **1.053s** |
 | Qwen 3.5 0.8B / DeepInfra output tool | 0/26 | 1.721s | 2.141s |
 | Qwen 3.5 2B / DeepInfra output tool | 0/26 | 1.184s | 2.500s |
 | Qwen 3.5 4B / DeepInfra output tool | 18/26 | 1.893s | 2.667s |
@@ -47,6 +47,8 @@ Latency is measured over the full case span, including failed runs.
 | Qwen 3.5 2B / Modal Outlines | 13/26 | 0.981s | 1.341s |
 | Qwen 3.5 4B / Modal Outlines | 25/26 | 2.654s | 5.801s |
 | Qwen 3.5 9B / Modal Outlines | 22/26 | 3.285s | 6.728s |
+
+Table: All 17 setups tested
 
 
 ## How Structure Gets Enforced
