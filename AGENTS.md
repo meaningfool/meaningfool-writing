@@ -20,10 +20,12 @@ Content for https://meaningfool.net: articles, activity logs and images. The sit
   updated: 2026-03-01
   description: "Optional one-sentence summary"
   tags: ["optional"]
+  topics: ["product", "ai-agents"]
   ---
   ```
 
-  `title` is a quoted string. `date` and `updated` are `YYYY-MM-DD`, unquoted. `date` is the publish date and never changes; when a published post changes meaningfully, set `updated` to that day (search engines read it). `updated`, `description` and `tags` are optional, and other fields are ignored by the site.
+  `title` is a quoted string. `date` and `updated` are `YYYY-MM-DD`, unquoted. `date` is the publish date and never changes; when a published post changes meaningfully, set `updated` to that day (search engines read it). `updated`, `description`, `tags` and `topics` are optional, and other fields are ignored by the site.
+- `topics` lists which of the site's three topics an article is about, each one that makes up 30% or more of it: `"customer-success"`, `"product"`, `"ai-agents"`. Picking a topic on the home's map shows only its articles (meaningfool/meaningfool.github.io#31), so an article without `topics` shows only when no topic is picked. Activity logs don't need it. Any other value makes the site build fail.
 - Start the body with `# Title`, matching `title`; the site drops that heading and shows `title` instead. Use `##` and deeper for sections: the site currently hides any other `#` heading in the body (see meaningfool/meaningfool.github.io#8).
 - Images: `![What the image shows](../images/file.png)`.
 - Videos: put the file in `images/` and embed it with `<video src="/images/file.mp4" controls width="100%"></video>`. The site copies only `.mp4` files, so convert `.mov` and other formats to MP4 with H.264 video, which every browser plays, including Safari and iPhones. Keep each video under 25 MiB, the largest file Cloudflare serves: a bigger one makes the deploy fail, so compress it first.

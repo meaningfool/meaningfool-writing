@@ -1,6 +1,7 @@
 ---
 title: "How long for that change?"
 date: 2026-02-02
+topics: ["product"]
 ---
 
 # How long for that change?

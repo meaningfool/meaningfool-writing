@@ -2,6 +2,7 @@
 title: "AI Engineer Paris Conference Notes"
 date: 2025-09-26
 tags: ["ai", "conference", "notes"]
+topics: ["ai-agents"]
 ---
 
 ## Highlights

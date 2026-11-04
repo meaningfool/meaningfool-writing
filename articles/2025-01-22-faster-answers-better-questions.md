@@ -2,6 +2,7 @@
 title: "Faster answers, better questions"
 date: 2025-01-22
 tags: ["speed"]
+topics: ["customer-success", "product"]
 ---
 
 # Faster answers, better questions

@@ -1,6 +1,7 @@
 ---
 title: "Comparing Models for Time-Sensitive Structured Extraction"
 date: 2026-05-27
+topics: ["ai-agents"]
 ---
 
 # Comparing Models for Time-Sensitive Structured Extraction

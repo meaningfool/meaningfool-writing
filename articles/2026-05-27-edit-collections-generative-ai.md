@@ -1,6 +1,7 @@
 ---
 title: "Editing and Reconciling Collections without IDs"
 date: 2026-05-27
+topics: ["ai-agents"]
 ---
 
 # Editing and Reconciling Collections without IDs

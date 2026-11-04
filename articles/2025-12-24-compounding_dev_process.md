@@ -2,6 +2,7 @@
 title: "Compounding Development Process"
 date: 2025-12-24
 tags: []
+topics: ["product", "ai-agents"]
 ---
 # Compounding Development Process
 

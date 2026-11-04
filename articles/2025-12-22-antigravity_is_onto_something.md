@@ -2,6 +2,7 @@
 title: "3 weeks with Antigravity and Gemini"
 date: 2025-12-22
 tags: []
+topics: ["ai-agents"]
 ---
 
 # 3 weeks with Antigravity and Gemini

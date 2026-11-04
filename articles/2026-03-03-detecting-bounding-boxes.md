@@ -1,6 +1,7 @@
 ---
 title: "Giving Agents the Ability to Point at Things"
 date: 2026-03-03
+topics: ["ai-agents"]
 ---
 
 # Giving Agents the Ability to Point at Things 👉

@@ -1,6 +1,7 @@
 ---
 title: "Thoughts on Human-AI Collaboration"
 date: 2026-05-18
+topics: ["customer-success", "product", "ai-agents"]
 ---
 
 # Thoughts on Human-AI Collaboration
